@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg[binary]
+feedparser
+httpx
+apscheduler
+python-dotenv

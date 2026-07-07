@@ -1,0 +1,101 @@
+:root {
+  --surface-1: #fcfcfb;
+  --page: #f9f9f7;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --border: rgba(11, 11, 11, 0.1);
+  --series-1: #2a78d6;
+  --series-2: #1baf7a;
+  --good: #0ca30c;
+  --critical: #d03b3b;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-1: #1a1a19;
+    --page: #0d0d0d;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --grid: #2c2c2a;
+    --border: rgba(255, 255, 255, 0.1);
+    --series-1: #3987e5;
+    --series-2: #199e70;
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  background: var(--page);
+  color: var(--text-primary);
+}
+.app { max-width: 860px; margin: 0 auto; padding: 16px; }
+
+header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+header h1 { font-size: 1.4rem; }
+nav button {
+  background: none; border: none; padding: 8px 14px; font-size: 1rem;
+  color: var(--text-secondary); cursor: pointer; border-radius: 8px;
+}
+nav button.active { background: var(--surface-1); color: var(--text-primary); font-weight: 600; border: 1px solid var(--border); }
+
+.card {
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px; margin: 12px 0;
+}
+.card h2, .card h3 { margin-top: 0; }
+
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 8px 0; }
+.spread { justify-content: space-between; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .grid2 { grid-template-columns: 1fr; } }
+
+label { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; color: var(--text-secondary); }
+label.row { flex-direction: row; align-items: center; color: var(--text-primary); }
+input, select {
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--page); color: var(--text-primary); font-size: 0.95rem;
+}
+input[type='checkbox'] { width: auto; }
+input[type='range'] { padding: 0; }
+
+button.primary {
+  background: var(--series-1); color: #fff; border: none;
+  padding: 10px 18px; border-radius: 8px; font-size: 1rem; cursor: pointer;
+}
+button.primary:hover { filter: brightness(1.1); }
+button.ghost, .chip.ghost {
+  background: none; border: 1px dashed var(--border); color: var(--text-secondary);
+  padding: 6px 10px; border-radius: 16px; cursor: pointer;
+}
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.chip {
+  background: var(--page); border: 1px solid var(--border); border-radius: 16px;
+  padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px;
+}
+.chip button { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 1rem; }
+
+.badge { padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; text-transform: capitalize; }
+.badge.ready { background: color-mix(in srgb, var(--good) 15%, transparent); color: var(--good); }
+.badge.generating { background: color-mix(in srgb, var(--series-1) 15%, transparent); color: var(--series-1); }
+.badge.failed { background: color-mix(in srgb, var(--critical) 15%, transparent); color: var(--critical); }
+
+.muted { color: var(--muted); }
+.small { font-size: 0.85rem; }
+.error { color: var(--critical); }
+.details { border-top: 1px solid var(--grid); margin-top: 10px; padding-top: 8px; }
+
+/* dashboard */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin: 12px 0; }
+.tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+.tile-value { font-size: 1.5rem; font-weight: 650; }
+.tile-label { color: var(--muted); font-size: 0.8rem; margin-top: 2px; }
+.legend { display: flex; gap: 16px; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px; }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; }
+svg { width: 100%; height: auto; display: block; }
+svg .grid { stroke: var(--grid); stroke-width: 1; }
+svg .tick { fill: var(--muted); font-size: 11px; }
+svg .direct { fill: var(--text-secondary); font-size: 11px; }
