@@ -1,3 +1,6 @@
+"""All API endpoints. Input validation happens here (pydantic models with
+length caps and enum patterns) — nothing user-typed reaches the pipeline
+or the LLM prompts unvalidated."""
 import json
 import os
 import time
@@ -22,7 +25,7 @@ router = APIRouter(prefix="/api")
 
 
 class AdvancedIn(BaseModel):
-    llm_model: str = Field(default="gpt-4o-mini", max_length=60)
+    llm_model: str = Field(default="gpt-4o", max_length=60)
     llm_temperature: float = Field(default=1.0, ge=0, le=2)
     qa_model: str = Field(default="gemini-2.5-flash", max_length=60)
     tts_model: str = Field(default="eleven_turbo_v2_5", max_length=60)
@@ -39,6 +42,7 @@ class PreferencesIn(BaseModel):
     tone: str = Field(pattern="^(casual|analytical|energetic)$")
     depth: str = Field(default="balanced", pattern="^(basic|balanced|expert)$")
     language: str = Field(default="en", pattern="^(en|es|fr|de|hi)$")
+    host_mode: str = Field(default="duo", pattern="^(duo|solo)$")
     host1_name: str = Field(min_length=1, max_length=60)
     host2_name: str = Field(min_length=1, max_length=60)
     host1_voice: str = Field(max_length=60)
@@ -152,10 +156,20 @@ KNOWN_TTS_MODELS = {
 }
 
 
+def _provider(model_id: str) -> str:
+    return "google" if model_id.startswith("gemini") else "openai"
+
+
 @router.post("/dev/validate-models")
 def validate_models(body: ModelsIn):
     """Check model ids against the providers before they can break a generation run."""
     errors: dict[str, str] = {}
+    # writer and judge from the same provider = self-grading; the whole point of the QA gate is independence
+    if body.qa_model and _provider(body.llm_model) == _provider(body.qa_model):
+        errors["qa_model"] = (
+            f"Judge ({body.qa_model}) and writer ({body.llm_model}) are the same provider — "
+            "cross-provider judging is required to avoid self-grading bias"
+        )
     headers = {"Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}"}
     for field, model_id in (("llm_model", body.llm_model), ("qa_model", body.qa_model)):
         if not model_id:
@@ -263,6 +277,8 @@ def create_episode(background: BackgroundTasks, body: EpisodeIn | None = None, d
     if not prefs.interests:
         raise HTTPException(400, "Set at least one interest first")
     body = body or EpisodeIn()
+    if body.format == "debate" and prefs.host_mode == "solo":
+        raise HTTPException(400, "Debate needs two hosts — switch to duo in Settings first")
     episode = Episode(status="generating", focus=body.focus.strip(), format=body.format)
     db.add(episode)
     db.commit()

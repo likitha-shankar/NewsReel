@@ -1,3 +1,5 @@
+// Episode list: record (format + focus steering), live pipeline stages, custom player,
+// transcript/sources/QA notes, Ask-the-Hosts, soft delete with 30s undo, podcast feed popover.
 import { useEffect, useState } from 'react'
 import { api, type Episode } from './api'
 import Player from './Player'
@@ -64,6 +66,7 @@ export default function Episodes({ dev }: { dev: boolean }) {
   const [episodes, setEpisodes] = useState<Episode[]>([])
   const [expanded, setExpanded] = useState<Episode | null>(null)
   const [error, setError] = useState('')
+  const [subOpen, setSubOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   // soft-deleted episodes linger here for the undo window
   const [ghosts, setGhosts] = useState<{ ep: Episode; until: number }[]>([])
@@ -135,10 +138,27 @@ export default function Episodes({ dev }: { dev: boolean }) {
       <div className="section-head">
         <h2>On the <em>record</em></h2>
         <div className="row">
-          <button className="ghost mono" onClick={copyFeed}
-            title="Copies your private podcast feed URL — paste it into any podcast app">
-            {copied ? 'LINK COPIED ✓' : 'SUBSCRIBE'}
-          </button>
+          {/* popover explains what subscribing means before anything is copied */}
+          <span className="sub-pop">
+            <button className="ghost mono" onClick={() => setSubOpen(!subOpen)}>
+              📻 LISTEN IN YOUR PODCAST APP
+            </button>
+            {subOpen && (
+              <span className="sub-card">
+                <p className="small">
+                  Your station has a private podcast feed. Copy the link, paste it into your podcast
+                  app, and new episodes appear there automatically — no need to open this site.
+                </p>
+                <p className="small muted">
+                  Apple Podcasts: ⋯ → Follow a Show by URL<br />
+                  Overcast / Pocket Casts: + → Add URL
+                </p>
+                <button className="primary mono" onClick={copyFeed}>
+                  {copied ? 'LINK COPIED ✓' : 'COPY FEED LINK'}
+                </button>
+              </span>
+            )}
+          </span>
           <button className="primary mono" onClick={() => (recordOpen ? generate() : setRecordOpen(true))}>
             ▸ RECORD NEW EPISODE
           </button>
@@ -164,11 +184,6 @@ export default function Episodes({ dev }: { dev: boolean }) {
             <button className="ghost mono" onClick={() => setRecordOpen(false)}>CANCEL</button>
           </div>
         </div>
-      )}
-      {copied && (
-        <p className="mono small muted">
-          FEED URL COPIED — Apple Podcasts: ⋯ → Follow a Show by URL · Overcast / Pocket Casts: + → Add URL. New episodes appear there automatically.
-        </p>
       )}
       {error && <p className="error mono small">{error}</p>}
       {ghosts.map(({ ep, until }) => (

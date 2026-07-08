@@ -1,3 +1,4 @@
+// Typed API client — the single place the frontend talks to the backend.
 export interface Advanced {
   llm_model: string
   llm_temperature: number
@@ -10,7 +11,7 @@ export interface Advanced {
 }
 
 export const ADVANCED_DEFAULTS: Advanced = {
-  llm_model: 'gpt-4o-mini',
+  llm_model: 'gpt-4o',
   llm_temperature: 1.0,
   qa_model: 'gemini-2.5-flash',
   tts_model: 'eleven_turbo_v2_5',
@@ -27,6 +28,7 @@ export interface Preferences {
   tone: string
   depth: string
   language: string
+  host_mode: string
   host1_name: string
   host2_name: string
   host1_voice: string

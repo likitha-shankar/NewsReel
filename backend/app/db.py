@@ -1,3 +1,4 @@
+"""Database wiring: engine, session factory, declarative base, FastAPI dependency."""
 import os
 
 from dotenv import load_dotenv

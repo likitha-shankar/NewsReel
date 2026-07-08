@@ -1,3 +1,5 @@
+// Dev-only console: pipeline tuning (models verified against providers before save,
+// temperature/voice dials) and API key rotation (masked, applied live, persisted to .env).
 import { useEffect, useState } from 'react'
 import { ADVANCED_DEFAULTS, api, type Advanced, type Preferences } from './api'
 

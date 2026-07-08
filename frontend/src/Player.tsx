@@ -1,3 +1,5 @@
+// Custom audio player: waveform-tick seek bar, speed cycle (1x-2x), mute, download —
+// all controls always visible (native <audio> hides download/speed behind a menu).
 import { useEffect, useRef, useState } from 'react'
 
 const SPEEDS = [1, 1.25, 1.5, 2]

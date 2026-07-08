@@ -1,3 +1,5 @@
+// Station settings: interests, show identity (name/language/tone/knowledge/length),
+// hosts (duo/solo, voices with audition previews), and the generation schedule.
 import { useEffect, useRef, useState } from 'react'
 import { api, voicePreviewUrl, type Preferences, type Voice } from './api'
 
@@ -189,19 +191,38 @@ export default function Settings() {
 
       <section className="card">
         <h3 className="mono">③ THE HOSTS — hit ▸ to audition a voice</h3>
+        {/* solo = single narrator for every format except debate (which needs two voices) */}
+        <div className="tone-row" role="radiogroup" aria-label="Host mode" style={{ gridTemplateColumns: '1fr 1fr' }}>
+          <button role="radio" aria-checked={prefs.host_mode === 'duo'}
+            className={`tone ${prefs.host_mode === 'duo' ? 'active' : ''}`}
+            onClick={() => set({ host_mode: 'duo' })}>
+            <strong>Two hosts</strong>
+            <span className="small muted">conversation, banter, debate</span>
+          </button>
+          <button role="radio" aria-checked={prefs.host_mode === 'solo'}
+            className={`tone ${prefs.host_mode === 'solo' ? 'active' : ''}`}
+            onClick={() => set({ host_mode: 'solo' })}>
+            <strong>Solo narrator</strong>
+            <span className="small muted">one voice, radio-bulletin style</span>
+          </button>
+        </div>
         <div className="grid2">
           <label>
-            <span className="mono small">HOST 1 NAME</span>
+            <span className="mono small">{prefs.host_mode === 'solo' ? 'HOST NAME' : 'HOST 1 NAME'}</span>
             <input value={prefs.host1_name} onChange={(e) => set({ host1_name: e.target.value })} />
           </label>
-          <VoicePicker label="HOST 1 VOICE" voices={voices} value={prefs.host1_voice}
-            onChange={(v) => set({ host1_voice: v })} />
-          <label>
-            <span className="mono small">HOST 2 NAME</span>
-            <input value={prefs.host2_name} onChange={(e) => set({ host2_name: e.target.value })} />
-          </label>
-          <VoicePicker label="HOST 2 VOICE" voices={voices} value={prefs.host2_voice}
-            onChange={(v) => set({ host2_voice: v })} />
+          <VoicePicker label={prefs.host_mode === 'solo' ? 'HOST VOICE' : 'HOST 1 VOICE'} voices={voices}
+            value={prefs.host1_voice} onChange={(v) => set({ host1_voice: v })} />
+          {prefs.host_mode === 'duo' && (
+            <>
+              <label>
+                <span className="mono small">HOST 2 NAME</span>
+                <input value={prefs.host2_name} onChange={(e) => set({ host2_name: e.target.value })} />
+              </label>
+              <VoicePicker label="HOST 2 VOICE" voices={voices} value={prefs.host2_voice}
+                onChange={(v) => set({ host2_voice: v })} />
+            </>
+          )}
         </div>
       </section>
 

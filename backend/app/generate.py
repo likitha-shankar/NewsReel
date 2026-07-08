@@ -22,7 +22,9 @@ ELEVEN_TTS_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}?output_
 
 # dev-mode tunables; prefs.advanced overrides these
 ADVANCED_DEFAULTS = {
-    "llm_model": "gpt-4o-mini",
+    # gpt-4o over -mini for the writer: noticeably better dialogue and instruction-following
+    # for ~$0.03/episode more — trivial next to TTS cost (~$0.20/episode)
+    "llm_model": "gpt-4o",
     "llm_temperature": 1.0,
     "qa_model": "gemini-2.5-flash",  # judge from a DIFFERENT provider than the writer — no self-grading
     "tts_model": "eleven_turbo_v2_5",
@@ -155,6 +157,13 @@ def _chat_json(adv: dict, prompt: str, temperature: float | None = None, model: 
     return json.loads(resp.json()["choices"][0]["message"]["content"])
 
 
+SOLO_DIRECTIVE = (
+    "HOST OVERRIDE — SOLO SHOW: this podcast has ONE host, {host1} (every line host 1). "
+    "No second voice exists — never write host 2 lines or address a co-host. "
+    "Keep it engaging solo: rhetorical questions to the listener, personal asides, varied pacing."
+)
+
+
 def _rules(prefs: Preferences, fmt: str = "deep_dive", focus: str = "") -> str:
     rules = RULES_COMMON.format(
         tone_directive=TONE_DIRECTIVES.get(prefs.tone, TONE_DIRECTIVES["casual"]),
@@ -167,6 +176,9 @@ def _rules(prefs: Preferences, fmt: str = "deep_dive", focus: str = "") -> str:
             " Keep outlet and proper names as-is. The news items are in English; report them in "
             f"{lang}."
         )
+    # solo station: single narrator regardless of format (debate still needs two voices, handled in routes)
+    if getattr(prefs, "host_mode", "duo") == "solo":
+        rules += f"\n- {SOLO_DIRECTIVE.format(host1=prefs.host1_name)}"
     if FORMAT_DIRECTIVES.get(fmt):
         rules += f"\n- {FORMAT_DIRECTIVES[fmt]}"
     if focus.strip():
@@ -291,8 +303,11 @@ FORMAT_QA_NOTES = {
 
 def _qa_review(prefs: Preferences, news: dict, script: dict, fmt: str = "deep_dive") -> tuple[float, list[str]]:
     adv = adv_settings(prefs)
+    format_note = FORMAT_QA_NOTES.get(fmt, "")
+    if getattr(prefs, "host_mode", "duo") == "solo":
+        format_note += " NOTE: SOLO show — a single narrator is CORRECT; do not deduct for consecutive lines."
     prompt = QA_PROMPT.format(tone=prefs.tone, news_json=json.dumps(news, indent=1),
-                              format_note=FORMAT_QA_NOTES.get(fmt, ""),
+                              format_note=format_note,
                               script_json=json.dumps(script["lines"], indent=1))
     if adv["qa_model"].startswith("gemini") and os.environ.get("GEMINI_API_KEY"):
         result = _gemini_json(adv["qa_model"], prompt)

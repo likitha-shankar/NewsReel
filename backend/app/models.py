@@ -1,3 +1,6 @@
+"""Schema: two tables. `preferences` is a single row (single-user app);
+`episodes` carries pipeline state (status/stage), content (script/sources JSON),
+QA results, and audio metadata."""
 from datetime import datetime, timezone
 
 from sqlalchemy import JSON, Boolean, DateTime, Float, Integer, String, Text
@@ -22,6 +25,7 @@ class Preferences(Base):
     tone: Mapped[str] = mapped_column(String(40), default="casual")  # casual|analytical|energetic
     depth: Mapped[str] = mapped_column(String(20), default="balanced")  # basic|balanced|expert
     language: Mapped[str] = mapped_column(String(10), default="en")  # en|es|fr|de|hi
+    host_mode: Mapped[str] = mapped_column(String(10), default="duo")  # duo|solo
     host1_name: Mapped[str] = mapped_column(String(60), default="Alex")
     host2_name: Mapped[str] = mapped_column(String(60), default="Sam")
     host1_voice: Mapped[str] = mapped_column(String(60), default="21m00Tcm4TlvDq8ikWAM")  # Rachel

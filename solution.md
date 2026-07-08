@@ -6,10 +6,10 @@ A personal podcast generator: you tell it your interests, it gathers fresh news 
 
 ## Stack
 
-- **Backend:** FastAPI (Python) + PostgreSQL (SQLAlchemy) — matches Prosper's stack.
-- **Frontend:** React + TypeScript (Vite), no UI framework — hand-built design system ("print-radio" editorial; dev mode flips to a dark console theme).
-- **Writer LLM:** OpenAI `gpt-4o-mini`. **QA judge:** Google `gemini-2.5-flash` (cross-provider on purpose).
-- **TTS:** ElevenLabs `eleven_turbo_v2_5` (multilingual), two voices.
+- **Backend:** FastAPI (Python) + PostgreSQL (SQLAlchemy)
+- **Frontend:** React + TypeScript (Vite)
+- **Writer LLM:** OpenAI `gpt-4o` (upgraded from -mini: better dialogue for ~$0.03/episode more — trivial next to TTS cost). **QA judge:** Google `gemini-2.5-flash` (cross-provider on purpose; the Console refuses to save a judge from the writer's provider).
+- **TTS:** ElevenLabs `eleven_turbo_v2_5` (multilingual), two voices — or one, in solo-narrator mode.
 - **Scheduling:** APScheduler inside the FastAPI process.
 
 ## Architecture
@@ -22,7 +22,7 @@ React (Vite, :5173) ── /api proxy ──► FastAPI (:8001) ──── APS
                           1. news    Google News RSS (per interest)
                                      + Hacker News Algolia API (per interest)
                                      + BeautifulSoup scrapers: The Verge + BBC front pages
-                          2. script  gpt-4o-mini → JSON dialogue
+                          2. script  gpt-4o → JSON dialogue
                                      · formats: deep dive / brief (single voice) / debate
                                      · tone, listener-knowledge, language, listener "focus" steering
                                      · >~900 words → segmented: one LLM call per topic,
@@ -40,7 +40,8 @@ React (Vite, :5173) ── /api proxy ──► FastAPI (:8001) ──── APS
 ## Product surfaces
 
 - **Episodes** — record with per-episode **format** (deep dive / brief / debate) and a **focus prompt** ("go deep on F1, skip celebrity news"); live pipeline stages while generating; custom player (play, waveform seek, speed 1×–2×, mute, download); transcript + verified source links; **Ask the Hosts** (NotebookLM-style: type a question, get a grounded answer spoken in the host's voice); soft delete with 30-second undo; SUBSCRIBE copies the RSS feed URL with per-app instructions.
-- **Settings** — interests, show name, **language** (EN/ES/FR/DE/HI), tone, **listener knowledge** (basic/balanced/expert), length 2–30 min, host names + voices with **audition previews**, daily/weekly schedule (the masthead tagline reflects it).
+- **Landing/About** — animated first-visit page (staggered masthead, spinning tape reels, three-step explainer); revisitable via ABOUT in the footer.
+- **Settings** — interests, show name, **language** (EN/ES/FR/DE/HI), tone, **listener knowledge** (basic/balanced/expert), length 2–30 min, **host mode (two hosts / solo narrator)**, host names + voices with **audition previews**, daily/weekly schedule (the masthead tagline reflects it).
 - **Developer mode** (theme-flipping toggle) — status badges switch from listener language (✓ READY) to operator language (AIRED/DEAD AIR) with QA scores, reviewer notes, and raw errors; **Dashboard** (mocked usage metrics with interactive charts); **Console** (model/temperature/voice tuning with provider-verified model ids, API key rotation).
 
 ## Reliability & quality (the part that matters at thousands of calls/day)
@@ -74,7 +75,7 @@ React (Vite, :5173) ── /api proxy ──► FastAPI (:8001) ──── APS
 
 ## Cost per episode (approx)
 
-- gpt-4o-mini writer + gemini-flash judge: **< $0.01**
+- gpt-4o writer + gemini-flash judge: **~$0.03–0.05**
 - ElevenLabs TTS: **~$0.04/min of audio** → 4-min ≈ $0.15–0.30, 15-min ≈ $0.60–1.20
 - News: free
 
