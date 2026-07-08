@@ -272,7 +272,9 @@ input.invalid { border-color: var(--accent); }
 .pctl:hover { background: var(--ink); color: var(--paper); }
 
 .record-form input { margin: 10px 0; width: 100%; }
-.askhosts { border-top: 2px solid var(--rule); margin-top: 14px; padding-top: 10px; }
+.askhosts { margin-bottom: 14px; }
+.pctl.ask { color: var(--accent); border-color: var(--accent); }
+.pctl.ask:hover { background: var(--accent); color: var(--accent-ink); }
 .askhosts h4 { font-size: 0.72rem; color: var(--muted); margin: 0 0 8px; }
 .ask-reply { background: var(--paper); border: 2px solid var(--rule); padding: 10px 12px; margin: 10px 0; }
 .small-btn { font-size: 0.7rem; padding: 8px 14px; margin-top: 8px; }

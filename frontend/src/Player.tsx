@@ -9,7 +9,7 @@ function fmt(s: number) {
   return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
 }
 
-export default function Player({ src, title }: { src: string; title: string }) {
+export default function Player({ src, title, onAsk }: { src: string; title: string; onAsk?: () => void }) {
   const audioRef = useRef<HTMLAudioElement>(null)
   const barRef = useRef<HTMLDivElement>(null)
   const [playing, setPlaying] = useState(false)
@@ -105,6 +105,14 @@ export default function Player({ src, title }: { src: string; title: string }) {
           <path d="M12 3v10.6l3.3-3.3 1.4 1.4L12 17.4l-4.7-5.7 1.4-1.4 2.3 2.3V3h2zM5 19h14v2H5z" />
         </svg>
       </a>
+      {onAsk && (
+        <button className="pctl ask" onClick={onAsk} aria-label="Ask the hosts"
+          title="Ask the hosts — question anything in this episode, they answer in their own voice">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden>
+            <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z" />
+          </svg>
+        </button>
+      )}
     </div>
   )
 }

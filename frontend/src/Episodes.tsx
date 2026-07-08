@@ -21,7 +21,9 @@ const FORMATS = [
   { value: 'debate', label: 'DEBATE', hint: 'hosts argue opposing sides' },
 ]
 
-function AskHosts({ episode, onFollowUp }: { episode: Episode; onFollowUp: (topic: string) => void }) {
+function AskHosts({ episode, onFollowUp, autoFocus }: {
+  episode: Episode; onFollowUp: (topic: string) => void; autoFocus?: boolean
+}) {
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState(false)
   // history persisted server-side; seed from the episode, append as we ask
@@ -58,7 +60,7 @@ function AskHosts({ episode, onFollowUp }: { episode: Episode; onFollowUp: (topi
         </div>
       ))}
       <div className="row">
-        <input value={q} placeholder="Ask about anything in this episode…"
+        <input value={q} placeholder="Ask about anything in this episode…" autoFocus={autoFocus}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && ask()} style={{ flex: 1 }} />
         <button className="primary mono" onClick={ask} disabled={busy}>
@@ -136,9 +138,18 @@ export default function Episodes({ dev }: { dev: boolean }) {
     }
   }
 
+  // when set, the expanded panel opens with the ask input focused (mic button path)
+  const [askFocus, setAskFocus] = useState(false)
+
   const toggleDetails = async (e: Episode) => {
+    setAskFocus(false)
     if (expanded?.id === e.id) return setExpanded(null)
     setExpanded(await api.getEpisode(e.id))
+  }
+
+  const openAsk = async (e: Episode) => {
+    setAskFocus(true)
+    if (expanded?.id !== e.id) setExpanded(await api.getEpisode(e.id))
   }
 
   return (
@@ -258,7 +269,7 @@ export default function Episodes({ dev }: { dev: boolean }) {
               </ol>
             </div>
           )}
-          {e.audio_url && <Player src={e.audio_url} title={e.title} />}
+          {e.audio_url && <Player src={e.audio_url} title={e.title} onAsk={() => openAsk(e)} />}
           <div className="row spread">
             {e.status === 'ready' ? (
               <button className="linklike mono small" onClick={() => toggleDetails(e)}>
@@ -271,6 +282,15 @@ export default function Episodes({ dev }: { dev: boolean }) {
           </div>
           {expanded?.id === e.id && (
             <div className="details">
+              {/* interactive first: ask sits above the read-only transcript/sources */}
+              <AskHosts episode={expanded} autoFocus={askFocus} onFollowUp={(topic) => {
+                // pre-fill the record form with the unanswered question as focus
+                setFormat('deep_dive')
+                setFocus(`Focus on answering: ${topic}`)
+                setRecordOpen(true)
+                setExpanded(null)
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+              }} />
               {dev && expanded.qa_notes && (
                 <>
                   <h4 className="mono">QA REVIEWER NOTES</h4>
@@ -293,14 +313,6 @@ export default function Episodes({ dev }: { dev: boolean }) {
                   </li>
                 ))}
               </ul>
-              <AskHosts episode={expanded} onFollowUp={(topic) => {
-                // pre-fill the record form with the unanswered question as focus
-                setFormat('deep_dive')
-                setFocus(`Focus on answering: ${topic}`)
-                setRecordOpen(true)
-                setExpanded(null)
-                window.scrollTo({ top: 0, behavior: 'smooth' })
-              }} />
             </div>
           )}
         </article>
