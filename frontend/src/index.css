@@ -290,6 +290,14 @@ input.invalid { border-color: var(--accent); }
 .details { border-top: 2px solid var(--rule); margin-top: 14px; padding-top: 12px; }
 .details h4 { font-size: 0.72rem; color: var(--muted); margin: 14px 0 8px; }
 .line { display: flex; gap: 10px; margin: 8px 0; }
+.line-text .edit-pen { opacity: 0; margin-left: 8px; padding: 0 4px; }
+.line:hover .edit-pen { opacity: 1; }
+.line-edit { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.line-edit textarea {
+  width: 100%; font-family: 'Fraunces', Georgia, serif; font-size: 0.95rem;
+  padding: 8px 10px; border: 2px solid var(--accent); background: var(--paper); color: var(--ink);
+}
+.record-form > .mono.small.muted { display: block; margin: 10px 0 4px; }
 .speaker {
   flex: 0 0 26px; height: 20px; display: grid; place-items: center;
   font-size: 0.62rem; font-weight: 600; color: var(--paper); margin-top: 3px;

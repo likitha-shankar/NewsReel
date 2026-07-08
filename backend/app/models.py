@@ -49,6 +49,8 @@ class Episode(Base):
     deleted: Mapped[bool] = mapped_column(Boolean, default=False)
     format: Mapped[str] = mapped_column(String(12), default="deep_dive")  # deep_dive|brief|debate
     focus: Mapped[str] = mapped_column(Text, default="")  # listener steering prompt for this episode
+    minutes: Mapped[int] = mapped_column(Integer, default=0)  # per-episode length override; 0 = use prefs
+    source_url: Mapped[str] = mapped_column(String(500), default="")  # optional listener-supplied article link
     qa_score: Mapped[float] = mapped_column(Float, default=0.0)  # 0–10 from the QA reviewer pass
     qa_notes: Mapped[str] = mapped_column(Text, default="")
     error: Mapped[str] = mapped_column(Text, default="")

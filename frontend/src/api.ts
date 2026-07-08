@@ -58,6 +58,7 @@ export interface Episode {
   script?: { host: number; text: string }[]
   sources?: { title: string; source: string; link: string }[]
   questions?: HostAnswer[]
+  editable?: boolean
 }
 
 export interface HostAnswer {
@@ -111,11 +112,17 @@ export const api = {
       body: JSON.stringify(p),
     }),
   getVoices: () => request<Voice[]>('/api/voices'),
-  generateEpisode: (focus = '', format = 'deep_dive') =>
+  generateEpisode: (focus = '', format = 'deep_dive', minutes = 0, source_url = '') =>
     request<Episode>('/api/episodes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ focus, format }),
+      body: JSON.stringify({ focus, format, minutes, source_url }),
+    }),
+  editLine: (id: number, lineIdx: number, text: string) =>
+    request<Episode>(`/api/episodes/${id}/lines/${lineIdx}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
     }),
   askHosts: (id: number, question: string) =>
     request<HostAnswer>(`/api/episodes/${id}/ask`, {

@@ -21,6 +21,15 @@ const FORMATS = [
   { value: 'debate', label: 'DEBATE', hint: 'hosts argue opposing sides' },
 ]
 
+// one-click presets: format + length + steering in a single chip
+const PROFILES: { name: string; hint: string; format: string; minutes: number; focus: string }[] = [
+  { name: '☕ COMMUTE', hint: '2-min headlines', format: 'brief', minutes: 0, focus: '' },
+  { name: '📰 DAILY DIVE', hint: '5-min conversation', format: 'deep_dive', minutes: 5, focus: '' },
+  { name: '🛋 SUNDAY LONGREAD', hint: '15-min, more depth', format: 'deep_dive', minutes: 15,
+    focus: 'Go deeper than headlines: background, context, and what happens next for each story' },
+  { name: '🥊 FACE-OFF', hint: '6-min debate', format: 'debate', minutes: 6, focus: '' },
+]
+
 // Browser-native speech-to-text (Chrome/Edge/Safari); no dependency.
 // TS's dom lib types SpeechRecognitionEvent but not the (webkit-prefixed) constructor — declare the minimum.
 interface SpeechRecLike {
@@ -168,13 +177,26 @@ export default function Episodes({ dev }: { dev: boolean }) {
   const [recordOpen, setRecordOpen] = useState(false)
   const [focus, setFocus] = useState('')
   const [format, setFormat] = useState('deep_dive')
+  const [minutes, setMinutes] = useState(0)
+  const [sourceUrl, setSourceUrl] = useState('')
+  const [profile, setProfile] = useState('')
+
+  const applyProfile = (p: (typeof PROFILES)[number]) => {
+    setProfile(p.name)
+    setFormat(p.format)
+    setMinutes(p.minutes)
+    setFocus(p.focus)
+  }
 
   const generate = async () => {
     setError('')
     try {
-      await api.generateEpisode(focus, format)
+      await api.generateEpisode(focus, format, minutes, sourceUrl)
       setRecordOpen(false)
       setFocus('')
+      setSourceUrl('')
+      setProfile('')
+      setMinutes(0)
       refresh()
     } catch (e) {
       setError((e as Error).message)
@@ -183,6 +205,27 @@ export default function Episodes({ dev }: { dev: boolean }) {
 
   // when set, the expanded panel opens with the ask input focused (mic button path)
   const [askFocus, setAskFocus] = useState(false)
+
+  // transcript line being edited: one TTS call re-voices just that line
+  const [editIdx, setEditIdx] = useState<number | null>(null)
+  const [editText, setEditText] = useState('')
+  const [editBusy, setEditBusy] = useState(false)
+
+  const saveLine = async (ep: Episode) => {
+    if (editIdx === null || editBusy) return
+    setEditBusy(true)
+    try {
+      const updated = await api.editLine(ep.id, editIdx, editText)
+      // cache-bust the audio url so players reload the re-stitched mp3
+      const bust = `${updated.audio_url}?v=${Date.now()}`
+      setExpanded({ ...updated, audio_url: bust })
+      setEpisodes((list) => list.map((x) => (x.id === ep.id ? { ...x, audio_url: bust, duration_seconds: updated.duration_seconds } : x)))
+      setEditIdx(null)
+    } catch (e) {
+      setError((e as Error).message)
+    }
+    setEditBusy(false)
+  }
 
   const toggleDetails = async (e: Episode) => {
     setAskFocus(false)
@@ -228,18 +271,41 @@ export default function Episodes({ dev }: { dev: boolean }) {
       </div>
       {recordOpen && (
         <div className="card record-form">
+          <span className="mono small muted">ONE-CLICK SHOWS</span>
+          <div className="chips">
+            {PROFILES.map((p) => (
+              <button key={p.name} className={`chip ${profile === p.name ? '' : 'ghost'}`}
+                onClick={() => applyProfile(p)} title={p.hint}>
+                {p.name} <span className="muted">· {p.hint}</span>
+              </button>
+            ))}
+          </div>
+          <span className="mono small muted">OR BUILD YOUR OWN</span>
           <div className="tone-row">
             {FORMATS.map((f) => (
               <button key={f.value} className={`tone ${format === f.value ? 'active' : ''}`}
-                onClick={() => setFormat(f.value)}>
+                onClick={() => { setFormat(f.value); setProfile('') }}>
                 <strong className="mono small">{f.label}</strong>
                 <span className="small muted">{f.hint}</span>
               </button>
             ))}
           </div>
+          {format !== 'brief' && (
+            <label>
+              <span className="mono small">
+                LENGTH — {minutes === 0 ? 'STATION DEFAULT' : `${minutes} MIN`}
+              </span>
+              <input type="range" min={0} max={30} value={minutes}
+                onChange={(e) => { setMinutes(+e.target.value); setProfile('') }} />
+            </label>
+          )}
           <input value={focus} maxLength={500}
             placeholder="Steer this episode (optional) — e.g. 'go deep on Formula 1, skip celebrity news'"
             onChange={(e) => setFocus(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && generate()} />
+          <input value={sourceUrl} maxLength={500}
+            placeholder="Add a link (optional) — the hosts will cover this article alongside your news"
+            onChange={(e) => setSourceUrl(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && generate()} />
           <div className="row">
             <button className="primary mono" onClick={generate}>START RECORDING</button>
@@ -341,12 +407,35 @@ export default function Episodes({ dev }: { dev: boolean }) {
                   <p className="small muted">{expanded.qa_notes}</p>
                 </>
               )}
-              <h4 className="mono">TRANSCRIPT</h4>
+              <h4 className="mono">
+                TRANSCRIPT
+                {expanded.editable && <span className="muted"> — HOVER A LINE TO RE-WRITE &amp; RE-VOICE IT</span>}
+              </h4>
               {expanded.script?.map((line, j) => (
-                <p key={j} className={`line h${line.host}`}>
+                <div key={j} className={`line h${line.host}`}>
                   <span className="mono small speaker">{line.host === 1 ? 'H1' : 'H2'}</span>
-                  {line.text}
-                </p>
+                  {editIdx === j ? (
+                    <span className="line-edit">
+                      <textarea value={editText} rows={3} maxLength={600}
+                        onChange={(ev) => setEditText(ev.target.value)} />
+                      <span className="row">
+                        <button className="primary mono small-btn" disabled={editBusy}
+                          onClick={() => saveLine(e)}>
+                          {editBusy ? 'RE-VOICING…' : 'SAVE + RE-VOICE'}
+                        </button>
+                        <button className="ghost mono" onClick={() => setEditIdx(null)}>CANCEL</button>
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="line-text">
+                      {line.text}
+                      {expanded.editable && (
+                        <button className="linklike mono small edit-pen" title="Edit this line — only this line gets re-voiced"
+                          onClick={() => { setEditIdx(j); setEditText(line.text) }}>✎</button>
+                      )}
+                    </span>
+                  )}
+                </div>
               ))}
               <h4 className="mono">SOURCES</h4>
               <ul className="sources">

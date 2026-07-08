@@ -81,10 +81,13 @@ def _episode_dict(e: Episode, full: bool = False) -> dict:
         "duration_seconds": e.duration_seconds,
     }
     if full:
+        from .generate import segments_dir
+
         d["script"] = e.script
         d["sources"] = e.sources
         d["qa_notes"] = e.qa_notes
         d["questions"] = e.questions or []
+        d["editable"] = segments_dir(e.id).is_dir()  # per-line segments kept -> lines can be re-voiced
     return d
 
 
@@ -271,6 +274,8 @@ _voices_cache: tuple[float, list] | None = None
 class EpisodeIn(BaseModel):
     focus: str = Field(default="", max_length=500)
     format: str = Field(default="deep_dive", pattern="^(deep_dive|brief|debate)$")
+    minutes: int = Field(default=0, ge=0, le=30)  # 0 = use the Settings default
+    source_url: str = Field(default="", max_length=500)
 
 
 @router.post("/episodes", status_code=202)
@@ -281,11 +286,42 @@ def create_episode(background: BackgroundTasks, body: EpisodeIn | None = None, d
     body = body or EpisodeIn()
     if body.format == "debate" and prefs.host_mode == "solo":
         raise HTTPException(400, "Debate needs two hosts — switch to duo in Settings first")
-    episode = Episode(status="generating", focus=body.focus.strip(), format=body.format)
+    url = body.source_url.strip()
+    if url and not url.startswith(("http://", "https://")):
+        raise HTTPException(400, "Link must start with http:// or https://")
+    episode = Episode(status="generating", focus=body.focus.strip(), format=body.format,
+                      minutes=body.minutes, source_url=url)
     db.add(episode)
     db.commit()
     background.add_task(run_pipeline, episode.id)
     return _episode_dict(episode)
+
+
+class LineEdit(BaseModel):
+    text: str = Field(min_length=3, max_length=600)
+
+
+@router.patch("/episodes/{episode_id}/lines/{line_idx}")
+def edit_line(episode_id: int, line_idx: int, body: LineEdit, db: Session = Depends(get_db)):
+    """Edit one transcript line: one TTS call for that line, instant re-concat of kept segments."""
+    from .generate import resynthesize_line, segments_dir
+
+    episode = db.get(Episode, episode_id)
+    if not episode or episode.status != "ready":
+        raise HTTPException(404, "Episode not ready")
+    if not segments_dir(episode_id).is_dir():
+        raise HTTPException(409, "This episode was recorded before line editing existed — regenerate it first")
+    lines = list(episode.script or [])
+    if not 0 <= line_idx < len(lines):
+        raise HTTPException(404, "No such line")
+    prefs = _prefs(db)
+    lines[line_idx] = {**lines[line_idx], "text": body.text.strip()}
+    episode.duration_seconds = resynthesize_line(
+        prefs, episode_id, lines, line_idx, MEDIA_DIR / episode.audio_file
+    )
+    episode.script = lines  # reassign so SQLAlchemy sees the JSON change
+    db.commit()
+    return _episode_dict(episode, full=True)
 
 
 class AskIn(BaseModel):

@@ -39,7 +39,8 @@ React (Vite, :5173) ── /api proxy ──► FastAPI (:8001) ──── APS
 
 ## Product surfaces
 
-- **Episodes** — record with per-episode **format** (deep dive / brief / debate) and a **focus prompt** ("go deep on F1, skip celebrity news"); live pipeline stages while generating; custom player (play, waveform seek, speed 1×–2×, mute, download, ask-the-hosts button); transcript + verified source links; soft delete with 30-second undo; a podcast-app popover that explains the private RSS feed before copying it.
+- **Episodes** — record with **one-click show profiles** (Commute brief / Daily Dive / Sunday Longread / Face-off debate) or build your own: format, per-episode length, a **focus prompt** ("go deep on F1, skip celebrity news"), and an **optional article link** the hosts cover alongside the news (fetched + readability-extracted, its own source bucket). Live pipeline stages while generating; custom player (play, waveform seek, speed 1×–2×, mute, download, ask-the-hosts button); transcript + verified source links; soft delete with 30-second undo; a podcast-app popover that explains the private RSS feed before copying it.
+- **Line-level re-voicing** — per-line TTS segments are kept on disk, so editing one transcript line costs **one TTS call + an instant re-concat (~0.6s measured)** instead of a ~40s full regeneration. Hover a line → ✎ → rewrite → SAVE + RE-VOICE. Human edit is the final authority over both script and audio.
 - **Ask the Hosts** (NotebookLM-style, text or **voice-dictated** via browser SpeechRecognition) — questions are answered grounded ONLY in that episode's transcript + sources, spoken back in the host's voice. Q&A history persists per episode. If the episode *didn't* cover the question, the host offers a follow-up and the UI shows **"record an episode about this"**, pre-filling the next episode's focus with the question — the gap becomes content in one click.
 - **Landing/About** — animated first-visit page (staggered masthead, spinning tape reels, three-step explainer); revisitable via ABOUT in the footer.
 - **Settings** — interests, show name, **language** (EN/ES/FR/DE/HI), tone, **listener knowledge** (basic/balanced/expert), length 2–30 min, **host mode (two hosts / solo narrator)**, host names + voices with **audition previews**, daily/weekly schedule (the masthead tagline reflects it).
@@ -62,7 +63,7 @@ React (Vite, :5173) ── /api proxy ──► FastAPI (:8001) ──── APS
 
 **LLM-as-judge honesty** — additive rubrics grade-inflate (everything scored 9.0); the deduction rubric spread scores 2.0–9.0 on identical content. Same-model judging is self-grading, hence the cross-provider judge. Remaining known limit: no calibration set; production would track judge/human agreement over time.
 
-**MP3 byte-concatenation, no ffmpeg** — identical codec settings per segment; players handle it. pydub only earns its install for crossfades/loudness normalization.
+**MP3 byte-concatenation, no ffmpeg** — identical codec settings per segment; players handle it. pydub only earns its install for crossfades/loudness normalization. Keeping the per-line segments on disk is what makes line-level re-voicing a one-call operation — the concat step was already free.
 
 **APScheduler in-process over Celery** — no broker, works on `uvicorn` start; schedule re-registers on every save. Single-instance only, missed windows not replayed — at scale, worker queue + schedules in Postgres; the pipeline function is isolated and ports as-is.
 

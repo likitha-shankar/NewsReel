@@ -4,10 +4,12 @@ Set your interests → it gathers fresh news on your schedule → generates a po
 
 **▶️ Hear it: [`sample.mp3`](sample.mp3)**
 
-Highlights: two-host or solo formats (deep dive / brief / debate) · per-episode focus steering ·
-**Ask the Hosts** — question any episode by text or voice, get a grounded answer spoken back, and
-turn unanswered questions into the next episode with one click · 5 languages · subscribe from any
-podcast app via private RSS · developer mode with pipeline tuning and an internal metrics dashboard.
+Highlights: two-host or solo formats (deep dive / brief / debate) · one-click show profiles ·
+per-episode focus steering + optional article link as an extra source · **Ask the Hosts** —
+question any episode by text or voice, get a grounded answer spoken back, and turn unanswered
+questions into the next episode with one click · **edit any transcript line and re-voice just
+that line (~0.6s)** · 5 languages · subscribe from any podcast app via private RSS · developer
+mode with pipeline tuning and an internal metrics dashboard.
 
 See [`solution.md`](solution.md) for architecture and decisions.
 

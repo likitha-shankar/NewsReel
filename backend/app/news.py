@@ -97,6 +97,24 @@ def _scrape_bbc(client: httpx.Client, limit: int = 8) -> list[dict]:
     return out[:limit]
 
 
+def fetch_url_article(url: str) -> dict | None:
+    """Fetch a listener-supplied link and extract title + readable text for the script writer."""
+    try:
+        with httpx.Client(timeout=20, follow_redirects=True, headers=UA) as client:
+            soup = BeautifulSoup(client.get(url).text, "html.parser")
+        for tag in soup(["script", "style", "nav", "header", "footer", "aside"]):
+            tag.decompose()
+        title = _clean(soup.title.get_text() if soup.title else url)
+        # paragraphs beat soup.get_text(): skips menus/cookie banners that survive tag stripping
+        text = " ".join(_clean(p.get_text()) for p in soup.find_all("p"))
+        if len(text) < 200:  # paywall/JS-rendered page — not enough to summarize honestly
+            return None
+        return {"title": title[:200], "source": "Listener link", "summary": text[:4000], "link": url, "via": "user-url"}
+    except Exception as exc:  # noqa: BLE001 — a bad link must not kill the episode
+        log.warning("fetch_url_article failed for %r: %s", url, exc)
+        return None
+
+
 def fetch_news(interests: list[str], per_topic: int = 5) -> dict[str, list[dict]]:
     """Return {interest: [items]} plus a "Front pages" bucket of scraped outlet headlines."""
     result: dict[str, list[dict]] = {}

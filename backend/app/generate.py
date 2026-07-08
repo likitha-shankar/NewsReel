@@ -10,7 +10,7 @@ import httpx
 
 from .db import SessionLocal
 from .models import Episode, Preferences
-from .news import fetch_news
+from .news import fetch_news, fetch_url_article
 
 log = logging.getLogger("prosper")
 
@@ -237,9 +237,10 @@ def _write_script_segmented(prefs: Preferences, news: dict, words: int,
 
 
 def _write_script(prefs: Preferences, news: dict, feedback: str = "",
-                  fmt: str = "deep_dive", focus: str = "") -> dict:
+                  fmt: str = "deep_dive", focus: str = "", minutes: int = 0) -> dict:
     adv = adv_settings(prefs)
-    words = 300 if fmt == "brief" else int(prefs.episode_minutes * adv["words_per_minute"])
+    mins = minutes or prefs.episode_minutes
+    words = 300 if fmt == "brief" else int(mins * adv["words_per_minute"])
     if words > SEGMENT_THRESHOLD_WORDS and not feedback:
         return _write_script_segmented(prefs, news, words, fmt, focus)
     # QA-feedback rewrites always go single-shot: the reviewer's notes apply to the whole script
@@ -340,23 +341,48 @@ def _tts_line(client: httpx.Client, text: str, voice_id: str, prev: str, nxt: st
     return resp.content
 
 
-def _synthesize(prefs: Preferences, lines: list[dict], out_path: Path) -> int:
-    """TTS each line with its host's voice, byte-concat the mp3 segments.
+def segments_dir(episode_id: int) -> Path:
+    return MEDIA_DIR / f"episode_{episode_id}_seg"
 
-    ponytail: mp3 frame concatenation instead of ffmpeg/pydub — same codec
-    settings on every segment, players handle it fine. Swap in pydub if we
-    ever need crossfades or loudness normalization.
+
+def _concat_segments(episode_id: int, n_lines: int, out_path: Path) -> int:
+    """Stitch per-line segment files into the episode mp3. Returns duration estimate."""
+    audio = b"".join((segments_dir(episode_id) / f"{i}.mp3").read_bytes() for i in range(n_lines))
+    out_path.write_bytes(audio)
+    return int(len(audio) / (128_000 / 8))  # 128kbps CBR -> duration estimate
+
+
+def _synthesize(prefs: Preferences, lines: list[dict], episode_id: int, out_path: Path) -> int:
+    """TTS each line with its host's voice into per-line segment files, then byte-concat.
+
+    Segments are KEPT on disk: editing one transcript line later costs one TTS call
+    plus an instant re-concat, not a full re-synthesis.
+    ponytail: mp3 frame concatenation instead of ffmpeg/pydub — same codec settings
+    on every segment, players handle it fine. pydub if we ever need crossfades.
     """
     adv = adv_settings(prefs)
     voices = {1: prefs.host1_voice, 2: prefs.host2_voice}
-    audio = b""
+    seg_dir = segments_dir(episode_id)
+    seg_dir.mkdir(exist_ok=True)
     with httpx.Client() as client:
         for i, line in enumerate(lines):
             prev = lines[i - 1]["text"] if i > 0 else ""
             nxt = lines[i + 1]["text"] if i < len(lines) - 1 else ""
-            audio += _tts_line(client, line["text"], voices.get(line["host"], prefs.host1_voice), prev, nxt, adv)
-    out_path.write_bytes(audio)
-    return int(len(audio) / (128_000 / 8))  # 128kbps CBR -> duration estimate
+            seg = _tts_line(client, line["text"], voices.get(line["host"], prefs.host1_voice), prev, nxt, adv)
+            (seg_dir / f"{i}.mp3").write_bytes(seg)
+    return _concat_segments(episode_id, len(lines), out_path)
+
+
+def resynthesize_line(prefs: Preferences, episode_id: int, lines: list[dict], idx: int, out_path: Path) -> int:
+    """Re-TTS a single edited line and re-stitch the episode. One TTS call, not len(lines)."""
+    adv = adv_settings(prefs)
+    voices = {1: prefs.host1_voice, 2: prefs.host2_voice}
+    prev = lines[idx - 1]["text"] if idx > 0 else ""
+    nxt = lines[idx + 1]["text"] if idx < len(lines) - 1 else ""
+    with httpx.Client() as client:
+        seg = _tts_line(client, lines[idx]["text"], voices.get(lines[idx]["host"], prefs.host1_voice), prev, nxt, adv)
+    (segments_dir(episode_id) / f"{idx}.mp3").write_bytes(seg)
+    return _concat_segments(episode_id, len(lines), out_path)
 
 
 def run_pipeline(episode_id: int) -> None:
@@ -378,6 +404,11 @@ def run_pipeline(episode_id: int) -> None:
 
         stage("news")
         news = fetch_news(prefs.interests, per_topic=adv_settings(prefs)["per_topic"])
+        if episode.source_url:
+            article = fetch_url_article(episode.source_url)
+            if article:
+                # listener-supplied link becomes its own bucket the writer must cover
+                news[f"Listener's link: {article['title']}"] = [article]
         if not any(news.values()):
             raise RuntimeError("No news found for your interests — try broader topics")
         episode.sources = [item for items in news.values() for item in items]
@@ -386,13 +417,14 @@ def run_pipeline(episode_id: int) -> None:
 
         fmt, focus = episode.format or "deep_dive", episode.focus or ""
         stage("script")
-        script = _write_script(prefs, news, fmt=fmt, focus=focus)
+        script = _write_script(prefs, news, fmt=fmt, focus=focus, minutes=episode.minutes)
 
         stage("qa")
         # QA is advisory: a broken reviewer must never block an episode that's ready to air
         try:
             score, issues = _qa_review(prefs, news, script, fmt)
-            words_target = 300 if fmt == "brief" else int(prefs.episode_minutes * adv_settings(prefs)["words_per_minute"])
+            mins = episode.minutes or prefs.episode_minutes
+            words_target = 300 if fmt == "brief" else int(mins * adv_settings(prefs)["words_per_minute"])
             # segmented (long) scripts: keep the score visible but skip the rewrite —
             # a single-shot rewrite would under-deliver the length again
             if score < QA_THRESHOLD and words_target <= SEGMENT_THRESHOLD_WORDS:
@@ -418,7 +450,7 @@ def run_pipeline(episode_id: int) -> None:
 
         stage("tts")
         filename = f"episode_{episode.id}.mp3"
-        episode.duration_seconds = _synthesize(prefs, script["lines"], MEDIA_DIR / filename)
+        episode.duration_seconds = _synthesize(prefs, script["lines"], episode.id, MEDIA_DIR / filename)
         episode.audio_file = filename
         episode.status = "ready"
         db.commit()
