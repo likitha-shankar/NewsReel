@@ -10,3 +10,4 @@ backend/media/
 .claude-flow/
 .gstack/
 PREP.md
+.run/

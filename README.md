@@ -11,16 +11,27 @@ See [`solution.md`](solution.md) for architecture and decisions.
 Requires Docker, Python 3.11+, Node 20+.
 
 ```bash
-docker compose up -d                 # Postgres
+cp .env.example .env        # add OpenAI + ElevenLabs (+ optional Gemini) keys
+./scripts/dev.sh start      # Postgres + backend (:8001) + frontend (:5173)
+```
+
+`./scripts/dev.sh stop` shuts everything down; `status` shows what's running.
+First run installs the venv and node_modules automatically. Logs land in `.run/`.
+
+<details>
+<summary>Manual startup (what the script does)</summary>
+
+```bash
+docker compose up -d
 
 cd backend
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-cp ../.env.example ../.env           # add OpenAI + ElevenLabs (+ optional Gemini) keys
 .venv/bin/uvicorn app.main:app --port 8001
 
 cd ../frontend
 npm install && npm run dev           # open http://localhost:5173
 ```
+</details>
 
 Settings → add interests → save → Episodes → ▸ RECORD NEW EPISODE (~40s for a 4-min episode).
 Flip the **DEV** toggle (top right) for the internal dashboard and pipeline console.
