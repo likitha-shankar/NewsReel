@@ -21,14 +21,48 @@ const FORMATS = [
   { value: 'debate', label: 'DEBATE', hint: 'hosts argue opposing sides' },
 ]
 
+// Browser-native speech-to-text (Chrome/Edge/Safari); no dependency.
+// TS's dom lib types SpeechRecognitionEvent but not the (webkit-prefixed) constructor — declare the minimum.
+interface SpeechRecLike {
+  lang: string
+  interimResults: boolean
+  onresult: ((ev: SpeechRecognitionEvent) => void) | null
+  onerror: ((ev: { error: string }) => void) | null
+  onend: (() => void) | null
+  start: () => void
+}
+// ponytail: en-US only — wire prefs.language in if non-English dictation matters.
+const SpeechRec: (new () => SpeechRecLike) | undefined =
+  (window as never as Record<string, new () => SpeechRecLike>).SpeechRecognition ??
+  (window as never as Record<string, new () => SpeechRecLike>).webkitSpeechRecognition
+
 function AskHosts({ episode, onFollowUp, autoFocus }: {
   episode: Episode; onFollowUp: (topic: string) => void; autoFocus?: boolean
 }) {
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState(false)
+  const [listening, setListening] = useState(false)
   // history persisted server-side; seed from the episode, append as we ask
   const [history, setHistory] = useState<HostAnswer[]>(episode.questions ?? [])
   const [err, setErr] = useState('')
+
+  const dictate = () => {
+    if (!SpeechRec || listening) return
+    const rec = new SpeechRec()
+    rec.lang = 'en-US'
+    rec.interimResults = true
+    setListening(true)
+    setErr('')
+    rec.onresult = (ev: SpeechRecognitionEvent) => {
+      setQ(Array.from(ev.results).map((r) => r[0].transcript).join(''))
+    }
+    rec.onerror = (ev: { error: string }) => {
+      setListening(false)
+      if (ev.error === 'not-allowed') setErr('Microphone blocked — allow mic access or type instead')
+    }
+    rec.onend = () => setListening(false)
+    rec.start()
+  }
 
   const ask = async () => {
     if (q.trim().length < 3 || busy) return
@@ -60,9 +94,18 @@ function AskHosts({ episode, onFollowUp, autoFocus }: {
         </div>
       ))}
       <div className="row">
-        <input value={q} placeholder="Ask about anything in this episode…" autoFocus={autoFocus}
+        <input value={q} autoFocus={autoFocus}
+          placeholder={listening ? 'Listening… speak your question' : 'Ask about anything in this episode…'}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && ask()} style={{ flex: 1 }} />
+        {SpeechRec && (
+          <button className={`pctl mic ${listening ? 'live' : ''}`} onClick={dictate}
+            aria-label="Speak your question" title="Speak your question instead of typing">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden>
+              <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z" />
+            </svg>
+          </button>
+        )}
         <button className="primary mono" onClick={ask} disabled={busy}>
           {busy ? 'THINKING…' : 'ASK'}
         </button>

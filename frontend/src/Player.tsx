@@ -108,8 +108,9 @@ export default function Player({ src, title, onAsk }: { src: string; title: stri
       {onAsk && (
         <button className="pctl ask" onClick={onAsk} aria-label="Ask the hosts"
           title="Ask the hosts — question anything in this episode, they answer in their own voice">
+          {/* speech bubble with ? — "ask a question", not "record audio" */}
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden>
-            <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z" />
+            <path d="M4 3h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H9l-5 4V5a2 2 0 0 1 2-2h-2zm8 3.2c-1.8 0-3.1 1-3.2 2.7h1.9c.05-.7.5-1.1 1.25-1.1.7 0 1.15.4 1.15 1 0 .55-.25.85-1 1.3-.85.5-1.2 1-1.15 1.9v.4h1.9v-.3c0-.6.2-.9 1-1.35.9-.55 1.4-1.2 1.4-2.1 0-1.5-1.3-2.45-3.25-2.45zM11 14.5v1.9h2v-1.9h-2z" />
           </svg>
         </button>
       )}
