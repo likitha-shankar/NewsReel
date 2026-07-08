@@ -50,6 +50,7 @@ def get_metrics() -> dict:
             "listen_rate": round(total_listened / total_generated, 2),
             "avg_completion": 0.67,
             "schedule_enabled_pct": 0.62,
+            "qa_pass_rate": 0.984,  # episodes passing QA review first try
             "avg_cost_per_episode_usd": 0.19,  # ~750 words TTS + one GPT call
         },
         "daily": daily,

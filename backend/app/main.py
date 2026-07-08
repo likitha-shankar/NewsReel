@@ -17,6 +17,18 @@ logging.basicConfig(level=logging.INFO)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(engine)
+    # ponytail: poor-man's migrations for columns added post-launch; Alembic if schema keeps moving
+    with engine.begin() as conn:
+        conn.exec_driver_sql("ALTER TABLE preferences ADD COLUMN IF NOT EXISTS advanced JSON DEFAULT '{}'")
+        conn.exec_driver_sql("ALTER TABLE episodes ADD COLUMN IF NOT EXISTS stage VARCHAR(20) DEFAULT 'queued'")
+        conn.exec_driver_sql("ALTER TABLE episodes ADD COLUMN IF NOT EXISTS qa_score FLOAT DEFAULT 0")
+        conn.exec_driver_sql("ALTER TABLE episodes ADD COLUMN IF NOT EXISTS qa_notes TEXT DEFAULT ''")
+        conn.exec_driver_sql("ALTER TABLE preferences ADD COLUMN IF NOT EXISTS depth VARCHAR(20) DEFAULT 'balanced'")
+        conn.exec_driver_sql("ALTER TABLE preferences ADD COLUMN IF NOT EXISTS language VARCHAR(10) DEFAULT 'en'")
+        conn.exec_driver_sql('ALTER TABLE episodes ADD COLUMN IF NOT EXISTS "trigger" VARCHAR(10) DEFAULT \'manual\'')
+        conn.exec_driver_sql("ALTER TABLE episodes ADD COLUMN IF NOT EXISTS deleted BOOLEAN DEFAULT FALSE")
+        conn.exec_driver_sql("ALTER TABLE episodes ADD COLUMN IF NOT EXISTS format VARCHAR(12) DEFAULT 'deep_dive'")
+        conn.exec_driver_sql("ALTER TABLE episodes ADD COLUMN IF NOT EXISTS focus TEXT DEFAULT ''")
     db = SessionLocal()
     try:
         prefs = db.get(Preferences, 1)

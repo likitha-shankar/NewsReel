@@ -1,8 +1,32 @@
+export interface Advanced {
+  llm_model: string
+  llm_temperature: number
+  qa_model: string
+  tts_model: string
+  per_topic: number
+  voice_stability: number
+  voice_similarity: number
+  words_per_minute: number
+}
+
+export const ADVANCED_DEFAULTS: Advanced = {
+  llm_model: 'gpt-4o-mini',
+  llm_temperature: 1.0,
+  qa_model: 'gemini-2.5-flash',
+  tts_model: 'eleven_turbo_v2_5',
+  per_topic: 5,
+  voice_stability: 0.5,
+  voice_similarity: 0.75,
+  words_per_minute: 150,
+}
+
 export interface Preferences {
   podcast_name: string
   interests: string[]
   episode_minutes: number
   tone: string
+  depth: string
+  language: string
   host1_name: string
   host2_name: string
   host1_voice: string
@@ -12,12 +36,18 @@ export interface Preferences {
   schedule_weekday: number
   schedule_hour: number
   schedule_minute: number
+  advanced: Advanced
 }
 
 export interface Episode {
   id: number
   title: string
   status: 'generating' | 'ready' | 'failed'
+  stage: 'queued' | 'news' | 'script' | 'qa' | 'tts'
+  trigger: 'manual' | 'scheduled'
+  format: 'deep_dive' | 'brief' | 'debate'
+  qa_score: number
+  qa_notes?: string
   error: string
   created_at: string
   interests: string[]
@@ -39,6 +69,7 @@ export interface Metrics {
     listen_rate: number
     avg_completion: number
     schedule_enabled_pct: number
+    qa_pass_rate: number
     avg_cost_per_episode_usd: number
   }
   daily: {
@@ -69,8 +100,36 @@ export const api = {
       body: JSON.stringify(p),
     }),
   getVoices: () => request<Voice[]>('/api/voices'),
-  generateEpisode: () => request<Episode>('/api/episodes', { method: 'POST' }),
+  generateEpisode: (focus = '', format = 'deep_dive') =>
+    request<Episode>('/api/episodes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ focus, format }),
+    }),
+  askHosts: (id: number, question: string) =>
+    request<{ answer: string; audio_url: string }>(`/api/episodes/${id}/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question }),
+    }),
   listEpisodes: () => request<Episode[]>('/api/episodes'),
   getEpisode: (id: number) => request<Episode>(`/api/episodes/${id}`),
+  deleteEpisode: (id: number) => request<{ ok: boolean }>(`/api/episodes/${id}`, { method: 'DELETE' }),
+  restoreEpisode: (id: number) => request<Episode>(`/api/episodes/${id}/restore`, { method: 'POST' }),
   getMetrics: () => request<Metrics>('/api/metrics'),
+  getKeys: () => request<{ openai: string; elevenlabs: string }>('/api/dev/keys'),
+  validateModels: (llm_model: string, qa_model: string, tts_model: string) =>
+    request<{ ok: boolean; errors: Record<string, string> }>('/api/dev/validate-models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ llm_model, qa_model, tts_model }),
+    }),
+  putKeys: (openai: string, elevenlabs: string) =>
+    request<{ openai: string; elevenlabs: string }>('/api/dev/keys', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ openai, elevenlabs }),
+    }),
 }
+
+export const voicePreviewUrl = (voiceId: string) => `/api/voices/${voiceId}/preview`

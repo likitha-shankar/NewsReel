@@ -1,14 +1,19 @@
+import json
 import os
 import time
+from typing import Annotated
 
 import httpx
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi.responses import Response
+from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from dotenv import find_dotenv, set_key
+
 from .db import get_db
-from .generate import run_pipeline
+from .generate import ADVANCED_DEFAULTS, MEDIA_DIR, run_pipeline
 from .metrics import get_metrics
 from .models import Episode, Preferences
 from .scheduler import apply_schedule
@@ -16,11 +21,24 @@ from .scheduler import apply_schedule
 router = APIRouter(prefix="/api")
 
 
+class AdvancedIn(BaseModel):
+    llm_model: str = Field(default="gpt-4o-mini", max_length=60)
+    llm_temperature: float = Field(default=1.0, ge=0, le=2)
+    qa_model: str = Field(default="gemini-2.5-flash", max_length=60)
+    tts_model: str = Field(default="eleven_turbo_v2_5", max_length=60)
+    per_topic: int = Field(default=5, ge=1, le=10)
+    voice_stability: float = Field(default=0.5, ge=0, le=1)
+    voice_similarity: float = Field(default=0.75, ge=0, le=1)
+    words_per_minute: int = Field(default=150, ge=100, le=200)
+
+
 class PreferencesIn(BaseModel):
     podcast_name: str = Field(min_length=1, max_length=120)
-    interests: list[str] = Field(max_length=10)
-    episode_minutes: int = Field(ge=2, le=15)
+    interests: list[Annotated[str, StringConstraints(max_length=80)]] = Field(max_length=10)
+    episode_minutes: int = Field(ge=2, le=30)
     tone: str = Field(pattern="^(casual|analytical|energetic)$")
+    depth: str = Field(default="balanced", pattern="^(basic|balanced|expert)$")
+    language: str = Field(default="en", pattern="^(en|es|fr|de|hi)$")
     host1_name: str = Field(min_length=1, max_length=60)
     host2_name: str = Field(min_length=1, max_length=60)
     host1_voice: str = Field(max_length=60)
@@ -30,6 +48,7 @@ class PreferencesIn(BaseModel):
     schedule_weekday: int = Field(ge=0, le=6)
     schedule_hour: int = Field(ge=0, le=23)
     schedule_minute: int = Field(ge=0, le=59)
+    advanced: AdvancedIn = AdvancedIn()
 
 
 def _prefs(db: Session) -> Preferences:
@@ -46,6 +65,10 @@ def _episode_dict(e: Episode, full: bool = False) -> dict:
         "id": e.id,
         "title": e.title,
         "status": e.status,
+        "stage": e.stage,
+        "trigger": e.trigger,
+        "format": e.format,
+        "qa_score": e.qa_score,
         "error": e.error,
         "created_at": e.created_at.isoformat() if e.created_at else None,
         "interests": e.interests,
@@ -55,6 +78,7 @@ def _episode_dict(e: Episode, full: bool = False) -> dict:
     if full:
         d["script"] = e.script
         d["sources"] = e.sources
+        d["qa_notes"] = e.qa_notes
     return d
 
 
@@ -72,6 +96,123 @@ def put_preferences(body: PreferencesIn, db: Session = Depends(get_db)):
     db.commit()
     apply_schedule(prefs)
     return {"ok": True}
+
+
+@router.get("/voices/{voice_id}/preview")
+def voice_preview(voice_id: str):
+    """Short TTS sample so the user can hear a voice before picking it. Cached on disk."""
+    if not voice_id.isalnum():
+        raise HTTPException(400, "Bad voice id")
+    previews = MEDIA_DIR / "previews"
+    previews.mkdir(exist_ok=True)
+    path = previews / f"{voice_id}.mp3"
+    if not path.exists():
+        resp = httpx.post(
+            f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}?output_format=mp3_44100_128",
+            headers={"xi-api-key": os.environ["ELEVENLABS_API_KEY"]},
+            json={
+                "text": "Hey there! This is how your podcast host will sound. Pretty good, right?",
+                "model_id": "eleven_turbo_v2_5",
+            },
+            timeout=60,
+        )
+        if resp.status_code != 200:
+            raise HTTPException(502, "Voice preview failed — check the ElevenLabs key")
+        path.write_bytes(resp.content)
+    return Response(content=path.read_bytes(), media_type="audio/mpeg")
+
+
+def _mask(key: str) -> str:
+    return f"{key[:8]}…{key[-4:]}" if len(key) > 14 else "not set"
+
+
+@router.get("/dev/keys")
+def get_keys():
+    return {
+        "openai": _mask(os.environ.get("OPENAI_API_KEY", "")),
+        "elevenlabs": _mask(os.environ.get("ELEVENLABS_API_KEY", "")),
+    }
+
+
+class KeysIn(BaseModel):
+    openai: str = Field(default="", max_length=300)
+    elevenlabs: str = Field(default="", max_length=300)
+
+
+class ModelsIn(BaseModel):
+    llm_model: str = Field(max_length=60)
+    qa_model: str = Field(default="", max_length=60)
+    tts_model: str = Field(max_length=60)
+
+
+# TTS-only ElevenLabs keys can't list models; validate against the documented set instead
+KNOWN_TTS_MODELS = {
+    "eleven_turbo_v2_5", "eleven_turbo_v2", "eleven_flash_v2_5", "eleven_flash_v2",
+    "eleven_multilingual_v2", "eleven_monolingual_v1", "eleven_v3",
+}
+
+
+@router.post("/dev/validate-models")
+def validate_models(body: ModelsIn):
+    """Check model ids against the providers before they can break a generation run."""
+    errors: dict[str, str] = {}
+    headers = {"Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}"}
+    for field, model_id in (("llm_model", body.llm_model), ("qa_model", body.qa_model)):
+        if not model_id:
+            continue
+        if model_id.startswith("gemini"):
+            key = os.environ.get("GEMINI_API_KEY", "")
+            if not key:
+                errors[field] = "Gemini model set but GEMINI_API_KEY missing from .env"
+                continue
+            try:
+                resp = httpx.get(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}",
+                    headers={"x-goog-api-key": key}, timeout=15,
+                )
+                if resp.status_code == 404:
+                    errors[field] = f"'{model_id}' is not a valid Gemini model id"
+                elif resp.status_code >= 400:
+                    errors[field] = f"Gemini check failed (HTTP {resp.status_code})"
+            except httpx.HTTPError:
+                errors[field] = "Could not reach Gemini to verify"
+            continue
+        try:
+            resp = httpx.get(f"https://api.openai.com/v1/models/{model_id}", headers=headers, timeout=15)
+            if resp.status_code == 404:
+                errors[field] = f"'{model_id}' is not a valid OpenAI model id"
+            elif resp.status_code >= 400:
+                errors[field] = f"OpenAI check failed (HTTP {resp.status_code})"
+        except httpx.HTTPError:
+            errors[field] = "Could not reach OpenAI to verify"
+    try:
+        resp = httpx.get(
+            "https://api.elevenlabs.io/v1/models",
+            headers={"xi-api-key": os.environ["ELEVENLABS_API_KEY"]}, timeout=15,
+        )
+        if resp.status_code == 200:
+            ids = {m["model_id"] for m in resp.json()}
+            if body.tts_model not in ids:
+                errors["tts_model"] = f"'{body.tts_model}' is not a valid ElevenLabs model id"
+        elif body.tts_model not in KNOWN_TTS_MODELS:
+            errors["tts_model"] = f"'{body.tts_model}' is not a known ElevenLabs model id"
+    except httpx.HTTPError:
+        if body.tts_model not in KNOWN_TTS_MODELS:
+            errors["tts_model"] = f"'{body.tts_model}' is not a known ElevenLabs model id"
+    return {"ok": not errors, "errors": errors}
+
+
+@router.put("/dev/keys")
+def put_keys(body: KeysIn):
+    """Update API keys: process env now, .env for next boot. Blank field = keep current."""
+    updates = {"OPENAI_API_KEY": body.openai.strip(), "ELEVENLABS_API_KEY": body.elevenlabs.strip()}
+    env_file = find_dotenv(usecwd=True)
+    for name, value in updates.items():
+        if value:
+            os.environ[name] = value
+            if env_file:
+                set_key(env_file, name, value)
+    return get_keys()
 
 
 # ElevenLabs premade voices — fallback when the API key lacks voices_read
@@ -111,22 +252,92 @@ def get_voices():
 _voices_cache: tuple[float, list] | None = None
 
 
+class EpisodeIn(BaseModel):
+    focus: str = Field(default="", max_length=500)
+    format: str = Field(default="deep_dive", pattern="^(deep_dive|brief|debate)$")
+
+
 @router.post("/episodes", status_code=202)
-def create_episode(background: BackgroundTasks, db: Session = Depends(get_db)):
+def create_episode(background: BackgroundTasks, body: EpisodeIn | None = None, db: Session = Depends(get_db)):
     prefs = _prefs(db)
     if not prefs.interests:
         raise HTTPException(400, "Set at least one interest first")
-    episode = Episode(status="generating")
+    body = body or EpisodeIn()
+    episode = Episode(status="generating", focus=body.focus.strip(), format=body.format)
     db.add(episode)
     db.commit()
     background.add_task(run_pipeline, episode.id)
     return _episode_dict(episode)
 
 
+class AskIn(BaseModel):
+    question: str = Field(min_length=3, max_length=300)
+
+
+@router.post("/episodes/{episode_id}/ask")
+def ask_hosts(episode_id: int, body: AskIn, db: Session = Depends(get_db)):
+    """NotebookLM-style 'join the conversation', text edition: grounded answer + host-voice audio."""
+    from .generate import LANGUAGES, MEDIA_DIR, _chat_json, adv_settings, post_with_retry
+
+    episode = db.get(Episode, episode_id)
+    if not episode or episode.status != "ready":
+        raise HTTPException(404, "Episode not ready")
+    prefs = _prefs(db)
+    adv = adv_settings(prefs)
+    lang = LANGUAGES.get(prefs.language, "English")
+    prompt = (
+        f'You are {prefs.host1_name}, a host of the podcast "{prefs.podcast_name}". '
+        f'A listener paused the episode to ask: "{body.question}"\n'
+        "Answer in at most 90 spoken words, warm and direct, grounded ONLY in the episode transcript "
+        "and sources below. If they don't cover it, say so honestly and suggest what to add to their interests. "
+        f"Reply in {lang}. Spoken language only — no markdown, no emojis.\n"
+        'Return JSON: {"answer": "..."}\n\n'
+        f"Transcript:\n{json.dumps(episode.script)[:8000]}\n\nSources:\n{json.dumps(episode.sources)[:6000]}"
+    )
+    answer = _chat_json(adv, prompt).get("answer", "").strip()
+    if not answer:
+        raise HTTPException(502, "No answer generated")
+
+    answers_dir = MEDIA_DIR / "answers"
+    answers_dir.mkdir(exist_ok=True)
+    filename = f"answer_{episode_id}_{int(time.time())}.mp3"
+    resp = post_with_retry(
+        f"https://api.elevenlabs.io/v1/text-to-speech/{prefs.host1_voice}?output_format=mp3_44100_128",
+        headers={"xi-api-key": os.environ["ELEVENLABS_API_KEY"]},
+        json_body={"text": answer, "model_id": adv["tts_model"]},
+        timeout=120,
+    )
+    (answers_dir / filename).write_bytes(resp.content)
+    return {"answer": answer, "audio_url": f"/audio/answers/{filename}"}
+
+
 @router.get("/episodes")
 def list_episodes(db: Session = Depends(get_db)):
-    episodes = db.scalars(select(Episode).order_by(Episode.created_at.desc())).all()
+    episodes = db.scalars(
+        select(Episode).where(Episode.deleted.is_(False)).order_by(Episode.created_at.desc())
+    ).all()
     return [_episode_dict(e) for e in episodes]
+
+
+@router.delete("/episodes/{episode_id}")
+def delete_episode(episode_id: int, db: Session = Depends(get_db)):
+    """Soft delete: row + mp3 kept so the 30s undo in the UI can restore losslessly."""
+    episode = db.get(Episode, episode_id)
+    if not episode:
+        raise HTTPException(404, "Episode not found")
+    episode.deleted = True
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/episodes/{episode_id}/restore")
+def restore_episode(episode_id: int, db: Session = Depends(get_db)):
+    episode = db.get(Episode, episode_id)
+    if not episode:
+        raise HTTPException(404, "Episode not found")
+    episode.deleted = False
+    db.commit()
+    return _episode_dict(episode)
 
 
 @router.get("/episodes/{episode_id}")
@@ -140,3 +351,60 @@ def get_episode(episode_id: int, db: Session = Depends(get_db)):
 @router.get("/metrics")
 def metrics():
     return get_metrics()
+
+
+@router.get("/health")
+def health(db: Session = Depends(get_db)):
+    from sqlalchemy import text
+
+    from .scheduler import scheduler as sched
+
+    checks = {
+        "database": False,
+        "scheduler": sched.running,
+        "openai_key": bool(os.environ.get("OPENAI_API_KEY")),
+        "elevenlabs_key": bool(os.environ.get("ELEVENLABS_API_KEY")),
+    }
+    try:
+        db.execute(text("SELECT 1"))
+        checks["database"] = True
+    except Exception:  # noqa: BLE001 — health check reports, never raises
+        pass
+    ok = all(checks.values())
+    return {"status": "ok" if ok else "degraded", "checks": checks}
+
+
+@router.get("/feed.xml")
+def podcast_feed(request: Request, db: Session = Depends(get_db)):
+    """RSS 2.0 podcast feed — subscribe from any podcast app on the same network."""
+    from xml.sax.saxutils import escape
+
+    prefs = _prefs(db)
+    base = str(request.base_url).rstrip("/")
+    episodes = db.scalars(
+        select(Episode)
+        .where(Episode.status == "ready", Episode.deleted.is_(False))
+        .order_by(Episode.created_at.desc())
+    ).all()
+    items = "".join(
+        f"""
+    <item>
+      <title>{escape(e.title)}</title>
+      <description>{escape(", ".join(e.interests or []))}</description>
+      <pubDate>{e.created_at.strftime("%a, %d %b %Y %H:%M:%S +0000")}</pubDate>
+      <guid isPermaLink="false">episode-{e.id}</guid>
+      <enclosure url="{base}/audio/{e.audio_file}" type="audio/mpeg" length="{(MEDIA_DIR / e.audio_file).stat().st_size if (MEDIA_DIR / e.audio_file).exists() else 0}"/>
+      <itunes:duration>{e.duration_seconds}</itunes:duration>
+    </item>"""
+        for e in episodes
+    )
+    xml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+  <channel>
+    <title>{escape(prefs.podcast_name)}</title>
+    <link>{base}</link>
+    <language>{prefs.language}</language>
+    <description>Personal AI-generated news podcast covering: {escape(", ".join(prefs.interests or []))}</description>{items}
+  </channel>
+</rss>"""
+    return Response(content=xml, media_type="application/rss+xml")

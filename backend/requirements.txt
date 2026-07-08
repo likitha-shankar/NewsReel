@@ -3,6 +3,7 @@ uvicorn[standard]
 sqlalchemy
 psycopg[binary]
 feedparser
+beautifulsoup4
 httpx
 apscheduler
 python-dotenv

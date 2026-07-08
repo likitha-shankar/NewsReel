@@ -16,7 +16,7 @@ JOB_ID = "scheduled_episode"
 def _generate_scheduled():
     db = SessionLocal()
     try:
-        episode = Episode(status="generating")
+        episode = Episode(status="generating", trigger="scheduled")
         db.add(episode)
         db.commit()
         episode_id = episode.id
