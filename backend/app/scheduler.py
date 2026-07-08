@@ -16,6 +16,11 @@ JOB_ID = "scheduled_episode"
 def _generate_scheduled():
     db = SessionLocal()
     try:
+        prefs = db.get(Preferences, 1)
+        # no interests -> nothing to make; don't leave a failed episode on the reel every night
+        if not prefs or not prefs.interests:
+            log.warning("Scheduled generation skipped: no interests configured")
+            return
         episode = Episode(status="generating", trigger="scheduled")
         db.add(episode)
         db.commit()

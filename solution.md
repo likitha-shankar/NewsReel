@@ -39,7 +39,8 @@ React (Vite, :5173) ── /api proxy ──► FastAPI (:8001) ──── APS
 
 ## Product surfaces
 
-- **Episodes** — record with per-episode **format** (deep dive / brief / debate) and a **focus prompt** ("go deep on F1, skip celebrity news"); live pipeline stages while generating; custom player (play, waveform seek, speed 1×–2×, mute, download); transcript + verified source links; **Ask the Hosts** (NotebookLM-style: type a question, get a grounded answer spoken in the host's voice); soft delete with 30-second undo; SUBSCRIBE copies the RSS feed URL with per-app instructions.
+- **Episodes** — record with per-episode **format** (deep dive / brief / debate) and a **focus prompt** ("go deep on F1, skip celebrity news"); live pipeline stages while generating; custom player (play, waveform seek, speed 1×–2×, mute, download, ask-the-hosts button); transcript + verified source links; soft delete with 30-second undo; a podcast-app popover that explains the private RSS feed before copying it.
+- **Ask the Hosts** (NotebookLM-style, text or **voice-dictated** via browser SpeechRecognition) — questions are answered grounded ONLY in that episode's transcript + sources, spoken back in the host's voice. Q&A history persists per episode. If the episode *didn't* cover the question, the host offers a follow-up and the UI shows **"record an episode about this"**, pre-filling the next episode's focus with the question — the gap becomes content in one click.
 - **Landing/About** — animated first-visit page (staggered masthead, spinning tape reels, three-step explainer); revisitable via ABOUT in the footer.
 - **Settings** — interests, show name, **language** (EN/ES/FR/DE/HI), tone, **listener knowledge** (basic/balanced/expert), length 2–30 min, **host mode (two hosts / solo narrator)**, host names + voices with **audition previews**, daily/weekly schedule (the masthead tagline reflects it).
 - **Developer mode** (theme-flipping toggle) — status badges switch from listener language (✓ READY) to operator language (AIRED/DEAD AIR) with QA scores, reviewer notes, and raw errors; **Dashboard** (mocked usage metrics with interactive charts); **Console** (model/temperature/voice tuning with provider-verified model ids, API key rotation).
@@ -84,15 +85,8 @@ TTS dominates — hence the 30-min cap, the long-form warning in Settings, and t
 ## Running it
 
 ```bash
-docker compose up -d                 # Postgres
-
-cd backend
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-cp ../.env.example ../.env           # OpenAI + ElevenLabs keys; Gemini optional (falls back to gpt-4o judge)
-.venv/bin/uvicorn app.main:app --port 8001
-
-cd ../frontend
-npm install && npm run dev           # http://localhost:5173
+cp .env.example .env        # OpenAI + ElevenLabs keys; Gemini optional (falls back to gpt-4o judge)
+./scripts/dev.sh start      # Postgres + backend (:8001) + frontend (:5173); stop|status too
 ```
 
 ## What I'd do next

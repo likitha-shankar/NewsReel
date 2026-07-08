@@ -1,8 +1,13 @@
 # 🎙️ NewsReel — Personal Podcast Generator
 
-Set your interests → it gathers fresh news on your schedule → generates a two-host podcast episode with AI voices, QA-reviewed by a second model before it airs.
+Set your interests → it gathers fresh news on your schedule → generates a podcast episode with AI hosts, QA-reviewed by a second AI provider before it airs.
 
 **▶️ Hear it: [`sample.mp3`](sample.mp3)**
+
+Highlights: two-host or solo formats (deep dive / brief / debate) · per-episode focus steering ·
+**Ask the Hosts** — question any episode by text or voice, get a grounded answer spoken back, and
+turn unanswered questions into the next episode with one click · 5 languages · subscribe from any
+podcast app via private RSS · developer mode with pipeline tuning and an internal metrics dashboard.
 
 See [`solution.md`](solution.md) for architecture and decisions.
 

@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI):
     scheduler.scheduler.shutdown(wait=False)
 
 
-app = FastAPI(title="Prosper Podcast Generator", lifespan=lifespan)
+app = FastAPI(title="NewsReel", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],

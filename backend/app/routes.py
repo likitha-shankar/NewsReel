@@ -295,7 +295,7 @@ class AskIn(BaseModel):
 @router.post("/episodes/{episode_id}/ask")
 def ask_hosts(episode_id: int, body: AskIn, db: Session = Depends(get_db)):
     """NotebookLM-style 'join the conversation', text edition: grounded answer + host-voice audio."""
-    from .generate import LANGUAGES, MEDIA_DIR, _chat_json, adv_settings, post_with_retry
+    from .generate import LANGUAGES, _chat_json, adv_settings, post_with_retry
 
     episode = db.get(Episode, episode_id)
     if not episode or episode.status != "ready":

@@ -23,25 +23,31 @@ export default function Player({ src, title, onAsk }: { src: string; title: stri
     if (!a) return
     const onTime = () => setTime(a.currentTime)
     const onMeta = () => setDuration(a.duration)
-    const onEnd = () => setPlaying(false)
+    // sync from element events so an external pause (another player starting) updates the button
+    const onPlay = () => setPlaying(true)
+    const onPause = () => setPlaying(false)
     a.addEventListener('timeupdate', onTime)
     a.addEventListener('loadedmetadata', onMeta)
-    a.addEventListener('ended', onEnd)
+    a.addEventListener('play', onPlay)
+    a.addEventListener('pause', onPause)
+    a.addEventListener('ended', onPause)
     return () => {
       a.removeEventListener('timeupdate', onTime)
       a.removeEventListener('loadedmetadata', onMeta)
-      a.removeEventListener('ended', onEnd)
+      a.removeEventListener('play', onPlay)
+      a.removeEventListener('pause', onPause)
+      a.removeEventListener('ended', onPause)
     }
   }, [])
 
   const toggle = () => {
     const a = audioRef.current!
     if (a.paused) {
+      // one station at a time: stop every other audio on the page (players + ask replies)
+      document.querySelectorAll('audio').forEach((other) => other !== a && other.pause())
       a.play()
-      setPlaying(true)
     } else {
       a.pause()
-      setPlaying(false)
     }
   }
 

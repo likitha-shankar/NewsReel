@@ -326,7 +326,8 @@ export default function Episodes({ dev }: { dev: boolean }) {
           {expanded?.id === e.id && (
             <div className="details">
               {/* interactive first: ask sits above the read-only transcript/sources */}
-              <AskHosts episode={expanded} autoFocus={askFocus} onFollowUp={(topic) => {
+              {/* keyed: without it React reuses the component across episodes and shows stale Q&A history */}
+              <AskHosts key={expanded.id} episode={expanded} autoFocus={askFocus} onFollowUp={(topic) => {
                 // pre-fill the record form with the unanswered question as focus
                 setFormat('deep_dive')
                 setFocus(`Focus on answering: ${topic}`)
