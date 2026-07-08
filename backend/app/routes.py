@@ -4,6 +4,7 @@ or the LLM prompts unvalidated."""
 import json
 import os
 import time
+from datetime import datetime, timezone
 from typing import Annotated
 
 import httpx
@@ -83,6 +84,7 @@ def _episode_dict(e: Episode, full: bool = False) -> dict:
         d["script"] = e.script
         d["sources"] = e.sources
         d["qa_notes"] = e.qa_notes
+        d["questions"] = e.questions or []
     return d
 
 
@@ -305,12 +307,17 @@ def ask_hosts(episode_id: int, body: AskIn, db: Session = Depends(get_db)):
         f'You are {prefs.host1_name}, a host of the podcast "{prefs.podcast_name}". '
         f'A listener paused the episode to ask: "{body.question}"\n'
         "Answer in at most 90 spoken words, warm and direct, grounded ONLY in the episode transcript "
-        "and sources below. If they don't cover it, say so honestly and suggest what to add to their interests. "
+        "and sources below.\n"
+        "If the transcript/sources DON'T cover it: say so in one honest sentence, then offer to make it "
+        "happen — e.g. \"want me to put together a whole episode on that? Just hit the button below.\" "
+        "Do NOT point the listener at external websites; making episodes is literally our job.\n"
         f"Reply in {lang}. Spoken language only — no markdown, no emojis.\n"
-        'Return JSON: {"answer": "..."}\n\n'
+        'Return JSON: {"answer": "...", "covered": true|false}  (covered=false when the episode did not cover the question)\n\n'
         f"Transcript:\n{json.dumps(episode.script)[:8000]}\n\nSources:\n{json.dumps(episode.sources)[:6000]}"
     )
-    answer = _chat_json(adv, prompt).get("answer", "").strip()
+    result = _chat_json(adv, prompt)
+    answer = str(result.get("answer", "")).strip()
+    covered = bool(result.get("covered", True))
     if not answer:
         raise HTTPException(502, "No answer generated")
 
@@ -324,7 +331,18 @@ def ask_hosts(episode_id: int, body: AskIn, db: Session = Depends(get_db)):
         timeout=120,
     )
     (answers_dir / filename).write_bytes(resp.content)
-    return {"answer": answer, "audio_url": f"/audio/answers/{filename}"}
+
+    entry = {
+        "q": body.question,
+        "a": answer,
+        "audio_url": f"/audio/answers/{filename}",
+        "covered": covered,
+        "at": datetime.now(timezone.utc).isoformat(),
+    }
+    # reassign (not mutate) so SQLAlchemy sees the JSON column change
+    episode.questions = [*(episode.questions or []), entry]
+    db.commit()
+    return entry
 
 
 @router.get("/episodes")

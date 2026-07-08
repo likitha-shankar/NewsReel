@@ -1,7 +1,7 @@
 // Episode list: record (format + focus steering), live pipeline stages, custom player,
 // transcript/sources/QA notes, Ask-the-Hosts, soft delete with 30s undo, podcast feed popover.
 import { useEffect, useState } from 'react'
-import { api, type Episode } from './api'
+import { api, type Episode, type HostAnswer } from './api'
 import Player from './Player'
 
 function fmtDuration(s: number) {
@@ -21,19 +21,21 @@ const FORMATS = [
   { value: 'debate', label: 'DEBATE', hint: 'hosts argue opposing sides' },
 ]
 
-function AskHosts({ episodeId }: { episodeId: number }) {
+function AskHosts({ episode, onFollowUp }: { episode: Episode; onFollowUp: (topic: string) => void }) {
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState(false)
-  const [reply, setReply] = useState<{ answer: string; audio_url: string } | null>(null)
+  // history persisted server-side; seed from the episode, append as we ask
+  const [history, setHistory] = useState<HostAnswer[]>(episode.questions ?? [])
   const [err, setErr] = useState('')
 
   const ask = async () => {
     if (q.trim().length < 3 || busy) return
     setBusy(true)
     setErr('')
-    setReply(null)
     try {
-      setReply(await api.askHosts(episodeId, q.trim()))
+      const reply = await api.askHosts(episode.id, q.trim())
+      setHistory((h) => [...h, reply])
+      setQ('')
     } catch (e) {
       setErr((e as Error).message)
     }
@@ -43,6 +45,18 @@ function AskHosts({ episodeId }: { episodeId: number }) {
   return (
     <div className="askhosts">
       <h4 className="mono">ASK THE HOSTS</h4>
+      {history.map((r, i) => (
+        <div key={i} className="ask-reply">
+          <p className="small mono muted">YOU: {r.q}</p>
+          <p className="small">{r.a}</p>
+          <audio controls src={r.audio_url} style={{ width: '100%' }} />
+          {!r.covered && (
+            <button className="primary mono small-btn" onClick={() => onFollowUp(r.q)}>
+              ▸ RECORD AN EPISODE ABOUT THIS
+            </button>
+          )}
+        </div>
+      ))}
       <div className="row">
         <input value={q} placeholder="Ask about anything in this episode…"
           onChange={(e) => setQ(e.target.value)}
@@ -52,12 +66,6 @@ function AskHosts({ episodeId }: { episodeId: number }) {
         </button>
       </div>
       {err && <p className="error small mono">{err}</p>}
-      {reply && (
-        <div className="ask-reply">
-          <p className="small">{reply.answer}</p>
-          <audio controls src={reply.audio_url} style={{ width: '100%' }} />
-        </div>
-      )}
     </div>
   )
 }
@@ -285,7 +293,14 @@ export default function Episodes({ dev }: { dev: boolean }) {
                   </li>
                 ))}
               </ul>
-              <AskHosts episodeId={e.id} />
+              <AskHosts episode={expanded} onFollowUp={(topic) => {
+                // pre-fill the record form with the unanswered question as focus
+                setFormat('deep_dive')
+                setFocus(`Focus on answering: ${topic}`)
+                setRecordOpen(true)
+                setExpanded(null)
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+              }} />
             </div>
           )}
         </article>

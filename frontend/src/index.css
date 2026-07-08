@@ -274,7 +274,8 @@ input.invalid { border-color: var(--accent); }
 .record-form input { margin: 10px 0; width: 100%; }
 .askhosts { border-top: 2px solid var(--rule); margin-top: 14px; padding-top: 10px; }
 .askhosts h4 { font-size: 0.72rem; color: var(--muted); margin: 0 0 8px; }
-.ask-reply { background: var(--paper); border: 2px solid var(--rule); padding: 10px 12px; margin-top: 10px; }
+.ask-reply { background: var(--paper); border: 2px solid var(--rule); padding: 10px 12px; margin: 10px 0; }
+.small-btn { font-size: 0.7rem; padding: 8px 14px; margin-top: 8px; }
 .linklike.delete { color: var(--muted); }
 .linklike.delete:hover { color: var(--accent); }
 .ghost-card {

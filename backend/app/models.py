@@ -56,5 +56,6 @@ class Episode(Base):
     interests: Mapped[list] = mapped_column(JSON, default=list)
     script: Mapped[list] = mapped_column(JSON, default=list)  # [{"host": 1, "text": "..."}]
     sources: Mapped[list] = mapped_column(JSON, default=list)  # [{"title","source","link"}]
+    questions: Mapped[list] = mapped_column(JSON, default=list)  # ask-the-hosts history: [{q, a, audio_url, covered, at}]
     audio_file: Mapped[str] = mapped_column(String(200), default="")
     duration_seconds: Mapped[int] = mapped_column(Integer, default=0)

@@ -31,6 +31,7 @@ async def lifespan(app: FastAPI):
         conn.exec_driver_sql("ALTER TABLE episodes ADD COLUMN IF NOT EXISTS format VARCHAR(12) DEFAULT 'deep_dive'")
         conn.exec_driver_sql("ALTER TABLE episodes ADD COLUMN IF NOT EXISTS focus TEXT DEFAULT ''")
         conn.exec_driver_sql("ALTER TABLE preferences ADD COLUMN IF NOT EXISTS host_mode VARCHAR(10) DEFAULT 'duo'")
+        conn.exec_driver_sql("ALTER TABLE episodes ADD COLUMN IF NOT EXISTS questions JSON DEFAULT '[]'")
     db = SessionLocal()
     try:
         prefs = db.get(Preferences, 1)

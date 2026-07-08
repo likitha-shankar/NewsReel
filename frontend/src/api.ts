@@ -57,6 +57,15 @@ export interface Episode {
   duration_seconds: number
   script?: { host: number; text: string }[]
   sources?: { title: string; source: string; link: string }[]
+  questions?: HostAnswer[]
+}
+
+export interface HostAnswer {
+  q: string
+  a: string
+  audio_url: string
+  covered: boolean
+  at: string
 }
 
 export interface Voice {
@@ -109,7 +118,7 @@ export const api = {
       body: JSON.stringify({ focus, format }),
     }),
   askHosts: (id: number, question: string) =>
-    request<{ answer: string; audio_url: string }>(`/api/episodes/${id}/ask`, {
+    request<HostAnswer>(`/api/episodes/${id}/ask`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question }),
