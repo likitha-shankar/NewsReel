@@ -278,11 +278,21 @@ class EpisodeIn(BaseModel):
     source_url: str = Field(default="", max_length=500)
 
 
+def _generation_in_flight(db: Session) -> Episode | None:
+    """One generation at a time: guards against double-clicks and accidental double scheduler fires
+    (idempotency for the expensive TTS path — never pay ElevenLabs twice for one intent)."""
+    return db.scalars(select(Episode).where(Episode.status == "generating")).first()
+
+
 @router.post("/episodes", status_code=202)
 def create_episode(background: BackgroundTasks, body: EpisodeIn | None = None, db: Session = Depends(get_db)):
     prefs = _prefs(db)
     if not prefs.interests:
         raise HTTPException(400, "Set at least one interest first")
+    existing = _generation_in_flight(db)
+    if existing:
+        # already recording — return that one instead of minting a duplicate + a second bill
+        return _episode_dict(existing)
     body = body or EpisodeIn()
     if body.format == "debate" and prefs.host_mode == "solo":
         raise HTTPException(400, "Debate needs two hosts — switch to duo in Settings first")

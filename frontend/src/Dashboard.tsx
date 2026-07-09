@@ -105,6 +105,8 @@ export default function Dashboard() {
     { label: 'Avg completion', value: `${Math.round(m.summary.avg_completion * 100)}%` },
     { label: 'On a schedule', value: `${Math.round(m.summary.schedule_enabled_pct * 100)}%` },
     { label: 'QA pass rate', value: `${(m.summary.qa_pass_rate * 100).toFixed(1)}%` },
+    { label: 'Gen success rate', value: `${(m.summary.gen_success_rate * 100).toFixed(1)}%` },
+    { label: 'Avg gen latency', value: `${m.summary.avg_gen_latency_s}s` },
     { label: 'Cost / episode', value: `$${m.summary.avg_cost_per_episode_usd.toFixed(2)}` },
   ]
 

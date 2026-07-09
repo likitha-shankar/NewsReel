@@ -51,6 +51,8 @@ def get_metrics() -> dict:
             "avg_completion": 0.67,
             "schedule_enabled_pct": 0.62,
             "qa_pass_rate": 0.984,  # episodes passing QA review first try
+            "gen_success_rate": 0.971,  # audio produced vs pipeline failures (timeouts, dead sources)
+            "avg_gen_latency_s": 43,  # queued -> ready, mostly TTS-bound
             "avg_cost_per_episode_usd": 0.19,  # ~750 words TTS + one GPT call
         },
         "daily": daily,

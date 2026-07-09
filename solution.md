@@ -53,6 +53,8 @@ React (Vite, :5173) ── /api proxy ──► FastAPI (:8001) ──── APS
 - **Retries with exponential backoff** on every OpenAI/ElevenLabs/Gemini call (429/5xx/transport).
 - **Graceful source degradation** — any single news source failing logs and continues; zero news fails fast with a clear user-facing error instead of letting the LLM invent an episode.
 - **Model-id validation** — Console tuning verifies model ids against OpenAI/Gemini/ElevenLabs *before* saving, so a typo can't break the next scheduled run.
+- **Idempotency** — one generation at a time: `create_episode` and the scheduler both refuse to start a new episode while one is `generating`, returning the in-flight one instead. A double-clicked button or an accidental double-fired cron can't mint a duplicate or a second ElevenLabs bill. (Multi-instance would upgrade this to a `(user, slot)` unique key.)
+- **SSRF guard** — listener-supplied article links resolving to loopback/private/link-local addresses are refused before any request is made.
 - **Failures are UX** — errors land on the episode row; users see "didn't make it to air, try again", dev mode sees the raw error. `/api/health` covers db/scheduler/keys.
 
 ## Key decisions & trade-offs
@@ -71,7 +73,7 @@ React (Vite, :5173) ── /api proxy ──► FastAPI (:8001) ──── APS
 
 **Single-user by design** — it's a *personal* podcast tool; auth adds evaluation noise. Multi-tenant = `user_id` FK + per-user scheduler jobs. Dev-mode endpoints (`/api/dev/*`) are likewise unauthenticated by scope.
 
-**Mocked dashboard, deterministic** — seeded RNG, stable across reloads. Metrics chosen to steer the product: listen rate, completion by length (decays past 6 min → informs default), QA pass rate (quality as a number), cost/episode (TTS dominates unit economics). Real version: events table + nightly aggregation.
+**Mocked dashboard, deterministic** — seeded RNG, stable across reloads. Metrics chosen to steer the product and reveal a healthy AI pipeline: **generation success rate** (audio vs. failures), **avg generation latency**, **QA pass rate**, listen rate + completion by length (decays past 6 min → informs default length; the "listened fully vs. dropped early" signal), and cost/episode (TTS dominates unit economics). Real version: an events table (`episode_generated`, `generation_failed`, `play_started`, `play_progress`) + nightly aggregation — every tile maps to a nameable query.
 
 **Poor-man's migrations** — `create_all` + `ALTER TABLE IF NOT EXISTS` per new column; Alembic when the schema churns for real.
 

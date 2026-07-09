@@ -82,6 +82,8 @@ export interface Metrics {
     avg_completion: number
     schedule_enabled_pct: number
     qa_pass_rate: number
+    gen_success_rate: number
+    avg_gen_latency_s: number
     avg_cost_per_episode_usd: number
   }
   daily: {

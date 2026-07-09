@@ -3,6 +3,7 @@ import logging
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from sqlalchemy import select
 
 from .db import SessionLocal
 from .generate import run_pipeline
@@ -20,6 +21,10 @@ def _generate_scheduled():
         # no interests -> nothing to make; don't leave a failed episode on the reel every night
         if not prefs or not prefs.interests:
             log.warning("Scheduled generation skipped: no interests configured")
+            return
+        # idempotency: a double-fired cron must not create a second episode + a second bill
+        if db.scalars(select(Episode).where(Episode.status == "generating")).first():
+            log.warning("Scheduled generation skipped: another episode is already generating")
             return
         episode = Episode(status="generating", trigger="scheduled")
         db.add(episode)
