@@ -13,6 +13,17 @@ mode with pipeline tuning and an internal metrics dashboard.
 
 See [`solution.md`](solution.md) for architecture and decisions.
 
+## Screenshots
+
+|  |  |
+|---|---|
+| **Landing** — animated intro & about | **Episodes** — record, play, ask, delete |
+| ![Landing](docs/screenshots/1-landing.png) | ![Episodes](docs/screenshots/2-episodes.png) |
+| **Settings** — interests, hosts, schedule | **Ask the Hosts** — grounded Q&A by text or voice |
+| ![Settings](docs/screenshots/3-settings.png) | ![Ask the Hosts](docs/screenshots/6-ask.png) |
+| **Dashboard** (dev mode) — pipeline health metrics | **Console** (dev mode) — model & voice tuning |
+| ![Dashboard](docs/screenshots/4-dashboard.png) | ![Console](docs/screenshots/5-console.png) |
+
 ## Quick start
 
 Requires Docker, Python 3.11+, Node 20+.
