@@ -46,7 +46,7 @@ React (Vite, :5173) ── /api proxy ──► FastAPI (:8001) ──── APS
 - **Settings** — interests, show name, **language** (EN/ES/FR/DE/HI), tone, **listener knowledge** (basic/balanced/expert), length 2–30 min, **host mode (two hosts / solo narrator)**, host names + voices with **audition previews**, daily/weekly schedule (the masthead tagline reflects it).
 - **Developer mode** (theme-flipping toggle) — status badges switch from listener language (✓ READY) to operator language (AIRED/DEAD AIR) with QA scores, reviewer notes, and raw errors; **Dashboard** (mocked usage metrics with interactive charts); **Console** (model/temperature/voice tuning with provider-verified model ids, API key rotation).
 
-## Reliability & quality (the part that matters at thousands of calls/day)
+## Reliability & quality
 
 - **Cross-provider QA gate** — every script graded by Gemini while OpenAI writes: different company, different weights, no self-grading bias. Deduction-based rubric with line-level citations (it has caught real hallucinations in testing — an invented "eliminated contestant" cost one draft 3 points). Below 7.0 → one rewrite with the reviewer's notes, then **best-of-two** ships (rewrites fix cited issues but can introduce new ones — measured, not assumed). QA runs before TTS, so bad drafts never burn voice spend.
 - **QA is advisory** — if the judge itself errors, the episode ships unreviewed with that fact recorded, never blocked. Output capped (a judge writes a verdict, not an essay — unbounded JSON mode ran away in testing).
