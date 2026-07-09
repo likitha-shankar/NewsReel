@@ -100,7 +100,9 @@ export default function Settings() {
     try {
       await api.savePreferences(prefs)
       window.dispatchEvent(new Event('prefs-saved'))
-      setStatus('Saved ✓ — next episode uses these settings')
+      setStatus(prefs.interests.length === 0
+        ? '⚠ Saved, but with no interests — episodes can\'t generate until you add at least one'
+        : 'Saved ✓ — next episode uses these settings')
     } catch (e) {
       setStatus(`Error: ${(e as Error).message}`)
     }

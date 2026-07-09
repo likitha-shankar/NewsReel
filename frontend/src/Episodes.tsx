@@ -124,7 +124,7 @@ function AskHosts({ episode, onFollowUp, autoFocus }: {
   )
 }
 
-export default function Episodes({ dev }: { dev: boolean }) {
+export default function Episodes({ dev, defaultMinutes }: { dev: boolean; defaultMinutes: number }) {
   const [episodes, setEpisodes] = useState<Episode[]>([])
   const [expanded, setExpanded] = useState<Episode | null>(null)
   const [error, setError] = useState('')
@@ -284,7 +284,12 @@ export default function Episodes({ dev }: { dev: boolean }) {
           <div className="tone-row">
             {FORMATS.map((f) => (
               <button key={f.value} className={`tone ${format === f.value ? 'active' : ''}`}
-                onClick={() => { setFormat(f.value); setProfile('') }}>
+                onClick={() => {
+                  setFormat(f.value)
+                  setProfile('')
+                  // leaving a profile: drop its canned steering text, keep anything the user typed
+                  if (PROFILES.some((p) => p.focus && p.focus === focus)) setFocus('')
+                }}>
                 <strong className="mono small">{f.label}</strong>
                 <span className="small muted">{f.hint}</span>
               </button>
@@ -293,12 +298,13 @@ export default function Episodes({ dev }: { dev: boolean }) {
           {format !== 'brief' && (
             <label>
               <span className="mono small">
-                LENGTH — {minutes === 0 ? 'STATION DEFAULT' : `${minutes} MIN`}
+                LENGTH — {minutes === 0 ? `STATION DEFAULT (${defaultMinutes} MIN — change in Settings)` : `${minutes} MIN, THIS EPISODE ONLY`}
               </span>
               <input type="range" min={0} max={30} value={minutes}
                 onChange={(e) => { setMinutes(+e.target.value); setProfile('') }} />
             </label>
           )}
+          {error && <p className="error mono small">{error}</p>}
           <input value={focus} maxLength={500}
             placeholder="Steer this episode (optional) — e.g. 'go deep on Formula 1, skip celebrity news'"
             onChange={(e) => setFocus(e.target.value)}

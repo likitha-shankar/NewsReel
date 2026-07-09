@@ -97,8 +97,30 @@ def _scrape_bbc(client: httpx.Client, limit: int = 8) -> list[dict]:
     return out[:limit]
 
 
+def _is_private_host(url: str) -> bool:
+    """SSRF guard: refuse listener links that resolve to loopback/private/link-local addresses."""
+    import ipaddress
+    import socket
+    import urllib.parse as up
+
+    host = up.urlparse(url).hostname or ""
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror:
+        return True  # unresolvable — treat as unsafe
+    return any(
+        ipaddress.ip_address(info[4][0]).is_private
+        or ipaddress.ip_address(info[4][0]).is_loopback
+        or ipaddress.ip_address(info[4][0]).is_link_local
+        for info in infos
+    )
+
+
 def fetch_url_article(url: str) -> dict | None:
     """Fetch a listener-supplied link and extract title + readable text for the script writer."""
+    if _is_private_host(url):
+        log.warning("fetch_url_article refused private/internal host: %r", url)
+        return None
     try:
         with httpx.Client(timeout=20, follow_redirects=True, headers=UA) as client:
             soup = BeautifulSoup(client.get(url).text, "html.parser")

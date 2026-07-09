@@ -72,7 +72,7 @@ export default function App() {
         </div>
       </header>
       <main>
-        {tab === 'Episodes' && <Episodes dev={dev} />}
+        {tab === 'Episodes' && <Episodes dev={dev} defaultMinutes={prefs?.episode_minutes ?? 5} />}
         {tab === 'Settings' && <Settings />}
         {tab === 'Dashboard' && dev && <Dashboard />}
         {tab === 'Console' && dev && <DevPanel />}
