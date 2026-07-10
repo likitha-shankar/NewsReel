@@ -191,17 +191,34 @@ def _fetchable(link: str) -> bool:
     return bool(link) and "news.google.com" not in link
 
 
-def enrich_sources(news: dict, adv: dict) -> None:
-    """In-place: fetch the top N fetchable articles per topic, replace their headline-only
-    'summary' with a real TLDR of the article body. This is the fix for starved input —
-    the script writer gets substance, not just titles, so it can write longer and deeper.
+# depth changes WHAT data the writer gets, not just how it talks about it: expert/technical
+# listeners need more source material (more articles enriched, longer + more technical TLDRs) or
+# there's nothing substantive to be technical ABOUT. (basic/balanced keep the lighter default —
+# a beginner-facing episode doesn't need 6 sources of depth per topic.)
+DEPTH_ENRICHMENT = {
+    "basic": {"count_bonus": 0, "sentences": "3-4", "focus": "the key facts in plain terms"},
+    "balanced": {"count_bonus": 0, "sentences": "3-4", "focus": "the key facts and why they matter"},
+    "expert": {"count_bonus": 2, "sentences": "6-8", "focus": "technical details, numbers, mechanisms, and second-order implications — do not simplify away specifics"},
+}
+
+
+def enrich_sources(news: dict, adv: dict, depth: str = "balanced") -> None:
+    """In-place: fetch the top articles per topic, replace their headline-only 'summary' with a
+    real TLDR of the article body. This is the fix for starved input — the script writer gets
+    substance, not just titles, so it can write longer and deeper.
+
+    depth scales BOTH how many articles are read and how much technical detail the TLDR keeps —
+    'expert' needs richer source material, not just a different tone instruction over the same
+    3-sentence summary everyone else gets.
 
     Bounded + graceful: skips Google News redirects, caps per topic, one cheap LLM call each,
     any failure leaves the original headline in place.
     """
-    n = int(adv.get("enrich_count", 0))
-    if n <= 0:
+    base_n = int(adv.get("enrich_count", 0))
+    if base_n <= 0:
         return
+    depth_cfg = DEPTH_ENRICHMENT.get(depth, DEPTH_ENRICHMENT["balanced"])
+    n = base_n + depth_cfg["count_bonus"]
     for topic, items in news.items():
         enriched = 0
         for item in items:
@@ -215,12 +232,13 @@ def enrich_sources(news: dict, adv: dict) -> None:
             try:
                 tldr = _chat_json(
                     adv,
-                    "Summarize this news article in 3-4 factual sentences for a podcast host to "
-                    "discuss. Only facts stated in the text; no opinions. "
+                    f"Summarize this news article in {depth_cfg['sentences']} factual sentences for a "
+                    f"podcast host to discuss. Emphasize {depth_cfg['focus']}. "
+                    "Only facts stated in the text; no opinions. "
                     'Return JSON: {"tldr": "..."}\n\n'
                     f"Title: {item['title']}\n\n{article['summary']}",
                     model=adv.get("summary_model", "gpt-4o-mini"),
-                    max_tokens=300,
+                    max_tokens=500,
                 ).get("tldr", "").strip()
                 if tldr:
                     item["summary"] = tldr
@@ -509,7 +527,7 @@ def run_pipeline(episode_id: int) -> None:
 
         # read the top articles in full and TLDR them: real substance for the writer, not headlines
         stage("enrich")
-        enrich_sources(news, adv)
+        enrich_sources(news, adv, depth=prefs.depth)
         episode.sources = [item for items in news.values() for item in items]
         episode.interests = list(prefs.interests)
         db.commit()
