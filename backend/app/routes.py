@@ -34,6 +34,8 @@ class AdvancedIn(BaseModel):
     voice_stability: float = Field(default=0.5, ge=0, le=1)
     voice_similarity: float = Field(default=0.75, ge=0, le=1)
     words_per_minute: int = Field(default=150, ge=100, le=200)
+    enrich_count: int = Field(default=3, ge=0, le=5)
+    summary_model: str = Field(default="gpt-4o-mini", max_length=60)
 
 
 class PreferencesIn(BaseModel):

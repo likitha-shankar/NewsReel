@@ -10,6 +10,7 @@ function fmtDuration(s: number) {
 
 const STAGES: [string, string][] = [
   ['news', 'GATHERING NEWS'],
+  ['enrich', 'READING ARTICLES'],
   ['script', 'WRITING SCRIPT'],
   ['qa', 'QA REVIEW'],
   ['tts', 'RECORDING VOICES'],

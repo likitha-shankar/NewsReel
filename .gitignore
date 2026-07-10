@@ -11,3 +11,4 @@ backend/media/
 .gstack/
 PREP.md
 .run/
+.vscode/

@@ -32,6 +32,8 @@ ADVANCED_DEFAULTS = {
     "voice_stability": 0.5,
     "voice_similarity": 0.75,
     "words_per_minute": 150,
+    "enrich_count": 3,  # top N fetchable articles PER TOPIC to read in full + TLDR (0 = headlines only)
+    "summary_model": "gpt-4o-mini",  # cheap model for the article TLDR pass
 }
 
 TONE_DIRECTIVES = {
@@ -105,6 +107,7 @@ Target length: about {words} words total (~{minutes} minutes spoken).
 Write an engaging episode covering the news items below. Rules:
 - Open with a quick, natural cold-open/greeting mentioning the podcast name.
 - Cover the most interesting stories, grouped by topic. Skip duplicates and weak items.
+- Items with a longer summary have been read in full — lean on those for depth (context, the "why it matters", what happens next). Items with only a headline get a lighter mention.
 - The "Front pages" bucket is scraped outlet headlines: weave one in ONLY if it clearly fits the listener's interests; otherwise ignore it.
 {rules}
 - Close with a short sign-off.
@@ -118,13 +121,11 @@ News items by topic:
 SEGMENT_PROMPT = """\
 You write one SEGMENT of an episode of "{podcast_name}", a two-host news podcast.
 Hosts: {host1} (host 1) and {host2} (host 2).
-This segment covers the topic "{topic}" and must be about {words} words (do not stop early — hit the word target by going deeper on the best stories: background, reactions, what happens next).
+This segment covers the topic "{topic}" in about {words} words — close to that target, not over. Use the space for substance (background, why it matters, what's next), NOT filler like "wow, interesting!" — every line must add information.
+Hosts strictly ALTERNATE: host 1, then host 2, then host 1 — never two lines in a row by the same host. Start this segment with host {start_host}.
 
 {position_rule}
 {rules}
-
-The previous segment ended with these lines (continue the conversation naturally from them, with a smooth transition into "{topic}"):
-{tail_json}
 
 Return JSON: {{"lines": [{{"host": 1, "text": "..."}}, {{"host": 2, "text": "..."}}]}}
 
@@ -134,8 +135,9 @@ News items for this segment:
 
 TITLE_PROMPT = """Give a catchy podcast episode title (max 10 words) for an episode covering: {topics}. Return JSON: {{"title": "..."}}"""
 
-# above this word target, one LLM call reliably under-delivers — switch to per-topic segments
-SEGMENT_THRESHOLD_WORDS = 900
+# above this word target, one LLM call reliably under-delivers (measured: a 750-word target came
+# out 381) — switch to per-topic segments, which hit length reliably (~250 words/segment × topics)
+SEGMENT_THRESHOLD_WORDS = 500
 
 
 def _chat_json(adv: dict, prompt: str, temperature: float | None = None, model: str | None = None,
@@ -155,6 +157,51 @@ def _chat_json(adv: dict, prompt: str, temperature: float | None = None, model: 
         timeout=120,
     )
     return json.loads(resp.json()["choices"][0]["message"]["content"])
+
+
+def _fetchable(link: str) -> bool:
+    # Google News RSS links are JS-obfuscated redirects — can't extract body. HN/scraper/listener
+    # links are direct publisher URLs and DO fetch. Enrich only what we can actually read.
+    return bool(link) and "news.google.com" not in link
+
+
+def enrich_sources(news: dict, adv: dict) -> None:
+    """In-place: fetch the top N fetchable articles per topic, replace their headline-only
+    'summary' with a real TLDR of the article body. This is the fix for starved input —
+    the script writer gets substance, not just titles, so it can write longer and deeper.
+
+    Bounded + graceful: skips Google News redirects, caps per topic, one cheap LLM call each,
+    any failure leaves the original headline in place.
+    """
+    n = int(adv.get("enrich_count", 0))
+    if n <= 0:
+        return
+    for topic, items in news.items():
+        enriched = 0
+        for item in items:
+            if enriched >= n:
+                break
+            if not _fetchable(item.get("link", "")):
+                continue
+            article = fetch_url_article(item["link"])
+            if not article:
+                continue
+            try:
+                tldr = _chat_json(
+                    adv,
+                    "Summarize this news article in 3-4 factual sentences for a podcast host to "
+                    "discuss. Only facts stated in the text; no opinions. "
+                    'Return JSON: {"tldr": "..."}\n\n'
+                    f"Title: {item['title']}\n\n{article['summary']}",
+                    model=adv.get("summary_model", "gpt-4o-mini"),
+                    max_tokens=300,
+                ).get("tldr", "").strip()
+                if tldr:
+                    item["summary"] = tldr
+                    item["enriched"] = True
+                    enriched += 1
+            except Exception as exc:  # noqa: BLE001 — enrichment is best-effort, never fatal
+                log.warning("TLDR failed for %r: %s", item["link"], exc)
 
 
 SOLO_DIRECTIVE = (
@@ -214,20 +261,34 @@ def _write_script_segmented(prefs: Preferences, news: dict, words: int,
     lines: list[dict] = []
     for i, topic in enumerate(topics):
         if i == 0:
-            position = "This is the FIRST segment: open with a natural cold-open/greeting mentioning the podcast name."
+            position = (
+                f"This is the FIRST segment of the episode — there is nothing before it. Open COLD with a "
+                f"natural greeting from host 1 that says the show name \"{prefs.podcast_name}\", then dive into the topic. "
+                "Do NOT start mid-sentence or with 'And' / 'So' as if continuing a prior conversation."
+            )
         elif i == len(topics) - 1:
-            position = "This is the LAST segment: end with a short, warm sign-off."
+            prev = lines[-1]["text"] if lines else ""
+            position = (
+                f"This is the LAST segment. The prior line was: \"{prev}\". Transition in naturally, cover the "
+                "topic, then end with a short, warm sign-off from the hosts."
+            )
         else:
-            position = "This is a MIDDLE segment: no greeting, no sign-off."
+            prev = lines[-1]["text"] if lines else ""
+            position = (
+                f"This is a MIDDLE segment (no greeting, no sign-off). The prior line was: \"{prev}\". "
+                "Transition in naturally from it."
+            )
+        # alternate the segment's opening host so seams don't create same-host runs
+        start_host = 1 if (len(lines) % 2 == 0) else 2
         prompt = SEGMENT_PROMPT.format(
             podcast_name=prefs.podcast_name,
             host1=prefs.host1_name,
             host2=prefs.host2_name,
             topic=topic,
             words=per_segment,
+            start_host=start_host,
             position_rule=position,
             rules=_rules(prefs, fmt, focus),
-            tail_json=json.dumps(lines[-2:], indent=1) if lines else "(episode start)",
             news_json=json.dumps({topic: news[topic]}, indent=1),
         )
         segment = _chat_json(adv, prompt)
@@ -402,8 +463,9 @@ def run_pipeline(episode_id: int) -> None:
             episode.stage = name
             db.commit()
 
+        adv = adv_settings(prefs)
         stage("news")
-        news = fetch_news(prefs.interests, per_topic=adv_settings(prefs)["per_topic"])
+        news = fetch_news(prefs.interests, per_topic=adv["per_topic"])
         if episode.source_url:
             article = fetch_url_article(episode.source_url)
             if article:
@@ -411,6 +473,10 @@ def run_pipeline(episode_id: int) -> None:
                 news[f"Listener's link: {article['title']}"] = [article]
         if not any(news.values()):
             raise RuntimeError("No news found for your interests — try broader topics")
+
+        # read the top articles in full and TLDR them: real substance for the writer, not headlines
+        stage("enrich")
+        enrich_sources(news, adv)
         episode.sources = [item for items in news.values() for item in items]
         episode.interests = list(prefs.interests)
         db.commit()

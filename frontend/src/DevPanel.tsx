@@ -93,6 +93,7 @@ export default function DevPanel() {
           {([
             ['TEMP', adv.llm_temperature.toFixed(2), 0, 2, 0.05, adv.llm_temperature, (v: number) => set({ llm_temperature: v })],
             ['ARTICLES', String(adv.per_topic), 1, 10, 1, adv.per_topic, (v: number) => set({ per_topic: v })],
+            ['READ FULL', String(adv.enrich_count), 0, 5, 1, adv.enrich_count, (v: number) => set({ enrich_count: v })],
             ['STABILITY', adv.voice_stability.toFixed(2), 0, 1, 0.05, adv.voice_stability, (v: number) => set({ voice_stability: v })],
             ['SIMILARITY', adv.voice_similarity.toFixed(2), 0, 1, 0.05, adv.voice_similarity, (v: number) => set({ voice_similarity: v })],
             ['WPM', String(adv.words_per_minute), 100, 200, 5, adv.words_per_minute, (v: number) => set({ words_per_minute: v })],

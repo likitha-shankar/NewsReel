@@ -22,6 +22,8 @@ React (Vite, :5173) ── /api proxy ──► FastAPI (:8001) ──── APS
                           1. news    Google News RSS (per interest)
                                      + Hacker News Algolia API (per interest)
                                      + BeautifulSoup scrapers: The Verge + BBC front pages
+                          1b. enrich  fetch top-N fetchable articles' bodies, TLDR with
+                                      gpt-4o-mini → real substance, not just headlines
                           2. script  gpt-4o → JSON dialogue
                                      · formats: deep dive / brief (single voice) / debate
                                      · tone, listener-knowledge, language, listener "focus" steering
@@ -59,9 +61,9 @@ React (Vite, :5173) ── /api proxy ──► FastAPI (:8001) ──── APS
 
 ## Key decisions & trade-offs
 
-**Three news source types** (RSS + real JSON API + HTML scraping) — covers the brief literally and practically: RSS works for any topic string, Hacker News API adds tech depth, scraped Verge/BBC front pages add serendipity the LLM may only use when relevant. Headlines/snippets, not full articles — right depth for a spoken roundup; trafilatura extraction is the next step.
+**Three news source types + an enrichment pass.** RSS (Google News, any topic string), Hacker News Algolia API, and BeautifulSoup scrapers (Verge, BBC). But headlines alone starve the writer — a diagnostic showed RSS `summary` fields are just the title repeated, HN gives engagement counts, scrapers give nothing. No model can write 2,000 words from 15 headlines, so *switching models never fixed the length ceiling — starved input did.* The fix is an **enrichment stage** (`enrich_sources`): for the top N fetchable articles per topic it fetches the body and TLDRs it with a cheap model (gpt-4o-mini) into 3–4 factual sentences, replacing the headline-only summary. Google News links are JS-obfuscated redirects and can't be read, so they stay headline-level; HN/scraper/listener links are direct publisher URLs and get enriched. This is the "summarize-first" context strategy: real substance for the writer, context window kept bounded (TLDR, not raw article), cost trivial (~$0.0001/article). Full-article RAG is the next step only if episodes need paragraph-level depth.
 
-**Segmented long-form generation** — a single LLM call reliably under-delivers past ~900 words (a "15-minute" episode came out 4 minutes). One call per topic with word budgets and continuity tails produced 11:52 from a 15-minute target. QA rewrite stays single-shot, so long episodes skip the rewrite (score still shown) rather than regress to a short script.
+**Length is a separate problem from depth, fixed separately.** Enrichment gives the writer substance; it does *not* make a single LLM call hit a word target — measured, a 750-word (5-min) target came out 381 words single-shot. That's an inherent LLM behavior, not an input problem. The fix is **segmented generation**: one call per topic with a word budget and continuity tails reliably hits length (~250 words/segment × topics). I lowered the segment threshold to 500 words so normal episodes segment too (a 5-min target now lands ~750 words instead of 381). Trade-off, stated honestly: segmented episodes skip the single-shot QA rewrite (a rewrite would regress the length) — the QA score is still computed and shown, just not auto-corrected. Two orthogonal problems (starved input → enrichment; single-call under-delivery → segmentation), two orthogonal fixes.
 
 **LLM-as-judge honesty** — additive rubrics grade-inflate (everything scored 9.0); the deduction rubric spread scores 2.0–9.0 on identical content. Same-model judging is self-grading, hence the cross-provider judge. Remaining known limit: no calibration set; production would track judge/human agreement over time.
 

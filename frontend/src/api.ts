@@ -8,6 +8,8 @@ export interface Advanced {
   voice_stability: number
   voice_similarity: number
   words_per_minute: number
+  enrich_count: number
+  summary_model: string
 }
 
 export const ADVANCED_DEFAULTS: Advanced = {
@@ -19,6 +21,8 @@ export const ADVANCED_DEFAULTS: Advanced = {
   voice_stability: 0.5,
   voice_similarity: 0.75,
   words_per_minute: 150,
+  enrich_count: 3,
+  summary_model: 'gpt-4o-mini',
 }
 
 export interface Preferences {
@@ -45,7 +49,7 @@ export interface Episode {
   id: number
   title: string
   status: 'generating' | 'ready' | 'failed'
-  stage: 'queued' | 'news' | 'script' | 'qa' | 'tts'
+  stage: 'queued' | 'news' | 'enrich' | 'script' | 'qa' | 'tts'
   trigger: 'manual' | 'scheduled'
   format: 'deep_dive' | 'brief' | 'debate'
   qa_score: number
