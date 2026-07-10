@@ -11,7 +11,7 @@ questions into the next episode with one click · **edit any transcript line and
 that line (~0.6s)** · 5 languages · subscribe from any podcast app via private RSS · developer
 mode with pipeline tuning and an internal metrics dashboard.
 
-See [`solution.md`](solution.md) for architecture and decisions.
+See [`solution.md`](solution.md) for architecture and decisions, or [`docs/report.html`](docs/report.html) for a formatted engineering report (system design, full click-to-audio workflow, reliability gates, bugs found and fixed).
 
 ## Screenshots
 

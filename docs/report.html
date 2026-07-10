@@ -1,0 +1,600 @@
+<title>NewsReel — Engineering Report</title>
+<style>
+  :root {
+    --paper: #f6f1e4;
+    --surface: #fffcf5;
+    --surface-2: #efe8d6;
+    --ink: #1c1712;
+    --ink-soft: #5b5346;
+    --muted: #8c8272;
+    --rule: #ddd1b8;
+    --accent: #b8401d;
+    --accent-soft: #b8401d1a;
+    --accent-2: #1f6f63;
+    --accent-2-soft: #1f6f631a;
+    --good: #2e6b34;
+    --warn: #8a5a06;
+    --bad: #a63b2e;
+    --shadow: 3px 3px 0 rgba(28, 23, 18, 0.9);
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, ui-serif, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  :root[data-theme="dark"] {
+    --paper: #16130f;
+    --surface: #1e1a14;
+    --surface-2: #262019;
+    --ink: #f1ead9;
+    --ink-soft: #c9bfa9;
+    --muted: #8f8570;
+    --rule: #35301f;
+    --accent: #e8683c;
+    --accent-soft: #e8683c26;
+    --accent-2: #4fb09d;
+    --accent-2-soft: #4fb09d26;
+    --good: #6fcf74;
+    --warn: #e0b23a;
+    --bad: #e2685a;
+    --shadow: 3px 3px 0 rgba(0, 0, 0, 0.6);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #16130f;
+      --surface: #1e1a14;
+      --surface-2: #262019;
+      --ink: #f1ead9;
+      --ink-soft: #c9bfa9;
+      --muted: #8f8570;
+      --rule: #35301f;
+      --accent: #e8683c;
+      --accent-soft: #e8683c26;
+      --accent-2: #4fb09d;
+      --accent-2-soft: #4fb09d26;
+      --good: #6fcf74;
+      --warn: #e0b23a;
+      --bad: #e2685a;
+      --shadow: 3px 3px 0 rgba(0, 0, 0, 0.6);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.65;
+  }
+  ::selection { background: var(--accent-soft); }
+
+  .doc { max-width: 880px; margin: 0 auto; padding: 0 24px 96px; }
+
+  /* ---------- masthead ---------- */
+  header.masthead {
+    border-bottom: 3px solid var(--ink);
+    padding: 28px 0 20px;
+    margin-bottom: 40px;
+  }
+  .masthead-top {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em;
+    color: var(--muted); text-transform: uppercase; margin-bottom: 18px;
+  }
+  .masthead-top .live { color: var(--accent); }
+  h1.title {
+    font-family: var(--serif); font-weight: 400; font-size: clamp(2rem, 5vw, 2.8rem);
+    letter-spacing: -0.01em; margin: 0 0 10px; text-wrap: balance;
+  }
+  .subtitle {
+    font-family: var(--serif); font-style: italic; color: var(--ink-soft);
+    font-size: 1.15rem; margin: 0 0 18px; text-wrap: balance;
+  }
+  .byline {
+    display: flex; flex-wrap: wrap; gap: 6px 18px; font-family: var(--mono);
+    font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .byline a { color: var(--accent-2); text-decoration: none; border-bottom: 1px solid currentColor; }
+  .byline a:hover { color: var(--accent); }
+
+  /* ---------- section scaffolding ---------- */
+  section { margin: 56px 0; }
+  .section-head {
+    display: flex; align-items: baseline; gap: 12px; margin-bottom: 20px;
+    padding-bottom: 10px; border-bottom: 2px solid var(--ink);
+  }
+  .section-num {
+    font-family: var(--mono); font-size: 13px; color: var(--accent);
+    font-weight: 600; flex-shrink: 0;
+  }
+  h2 {
+    font-family: var(--serif); font-weight: 400; font-size: 1.65rem; margin: 0;
+    letter-spacing: -0.005em; text-wrap: balance;
+  }
+  h3 {
+    font-family: var(--serif); font-weight: 600; font-size: 1.15rem;
+    margin: 28px 0 10px; color: var(--ink);
+  }
+  p { margin: 0 0 14px; max-width: 68ch; overflow-wrap: break-word; }
+  p.lede { font-size: 1.08rem; color: var(--ink-soft); max-width: 62ch; }
+  strong { color: var(--ink); }
+  a.inline { color: var(--accent-2); overflow-wrap: anywhere; }
+  code {
+    font-family: var(--mono); font-size: 0.86em; background: var(--surface-2);
+    padding: 0.1em 0.4em; border-radius: 3px; color: var(--ink);
+    overflow-wrap: break-word;
+  }
+  ul, ol { padding-left: 22px; margin: 0 0 14px; }
+  li { margin-bottom: 7px; max-width: 64ch; overflow-wrap: break-word; }
+  .caption {
+    font-family: var(--mono); font-size: 11.5px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.06em; margin: 6px 0 18px;
+  }
+
+  /* ---------- TOC ---------- */
+  nav.toc {
+    background: var(--surface); border: 1.5px solid var(--rule);
+    padding: 22px 26px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 28px;
+  }
+  nav.toc a {
+    font-family: var(--mono); font-size: 13px; color: var(--ink-soft);
+    text-decoration: none; display: flex; gap: 10px;
+  }
+  nav.toc a:hover { color: var(--accent); }
+  nav.toc a span.n { color: var(--accent); flex-shrink: 0; }
+  @media (max-width: 560px) { nav.toc { grid-template-columns: 1fr; } }
+
+  /* ---------- stat tiles ---------- */
+  .tiles {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 12px; margin: 20px 0;
+  }
+  .tile {
+    background: var(--surface); border: 1.5px solid var(--rule);
+    box-shadow: var(--shadow); padding: 16px 16px 14px; min-width: 0;
+  }
+  .tile .v {
+    font-family: var(--mono); font-variant-numeric: tabular-nums;
+    font-size: 1.5rem; font-weight: 600; color: var(--ink); line-height: 1.1;
+  }
+  .tile .l {
+    font-family: var(--mono); font-size: 10.5px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.05em; margin-top: 6px;
+  }
+
+  /* ---------- pipeline diagram ---------- */
+  .pipeline {
+    display: flex; flex-wrap: wrap; gap: 0; align-items: stretch;
+    margin: 24px 0; font-family: var(--mono); font-size: 12.5px;
+  }
+  .pstage {
+    background: var(--surface); border: 1.5px solid var(--ink);
+    padding: 14px 16px; flex: 1 1 150px; min-width: 0; position: relative;
+  }
+  .pstage .k { color: var(--accent); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+  .pstage .d { color: var(--ink-soft); margin-top: 6px; font-size: 11.5px; line-height: 1.5; overflow-wrap: break-word; }
+  .parrow {
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 6px; color: var(--muted); font-weight: 700; flex: 0 0 auto;
+  }
+  @media (max-width: 620px) {
+    .pipeline { flex-direction: column; }
+    .parrow { transform: rotate(90deg); padding: 4px 0; }
+  }
+  .qa-loop {
+    grid-column: 1 / -1; margin-top: 10px; padding: 10px 14px;
+    border: 1.5px dashed var(--accent-2); color: var(--accent-2);
+    font-family: var(--mono); font-size: 11.5px; background: var(--accent-2-soft);
+    overflow-wrap: break-word;
+  }
+
+  /* ---------- system design diagram (tiered) ---------- */
+  .sysdiagram {
+    margin: 24px 0; border: 1.5px solid var(--rule); background: var(--surface);
+    padding: 20px; display: flex; flex-direction: column; gap: 0;
+  }
+  .stier { display: flex; flex-wrap: wrap; gap: 10px; }
+  .stier + .sconn { margin: 10px 0; }
+  .sbox {
+    flex: 1 1 140px; min-width: 0; border: 1.5px solid var(--ink);
+    background: var(--paper); padding: 10px 12px; font-family: var(--mono); font-size: 11.5px;
+  }
+  .sbox.ext { border-style: dashed; border-color: var(--accent-2); color: var(--accent-2); }
+  .sbox .st { font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--ink); }
+  .sbox.ext .st { color: var(--accent-2); }
+  .sbox .sd { color: var(--muted); margin-top: 4px; line-height: 1.45; overflow-wrap: break-word; }
+  .stier-label {
+    font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); margin-bottom: 8px;
+  }
+  .sconn {
+    display: flex; align-items: center; gap: 10px; padding-left: 4px;
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+  }
+  .sconn::before, .sconn::after { content: ""; flex: 1 1 auto; height: 1px; background: var(--rule); }
+  .sconn .lbl { flex: 0 0 auto; white-space: nowrap; padding: 0 4px; }
+  .sconn .lbl b { color: var(--accent); }
+
+  /* ---------- sequence / workflow ---------- */
+  .seq { margin: 24px 0; position: relative; padding-left: 30px; }
+  .seq::before {
+    content: ""; position: absolute; left: 9px; top: 6px; bottom: 6px;
+    width: 2px; background: var(--rule);
+  }
+  .sstep { position: relative; margin-bottom: 22px; }
+  .sstep:last-child { margin-bottom: 0; }
+  .sstep::before {
+    content: ""; position: absolute; left: -30px; top: 3px;
+    width: 11px; height: 11px; border-radius: 50%;
+    background: var(--paper); border: 2.5px solid var(--accent);
+  }
+  .sstep .shead {
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    font-family: var(--mono); font-size: 12px; margin-bottom: 4px;
+  }
+  .sstep .sn { color: var(--accent); font-weight: 700; }
+  .sstep .swhere {
+    color: var(--accent-2); text-transform: uppercase; letter-spacing: 0.04em; font-size: 10.5px;
+    border: 1px solid var(--accent-2); padding: 1px 7px; flex-shrink: 0;
+  }
+  .sstep .st-title { font-weight: 600; color: var(--ink); }
+  .sstep p { margin: 0; font-size: 14px; color: var(--ink-soft); max-width: 60ch; }
+  .sstep .stime { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-left: auto; }
+
+  /* ---------- tables ---------- */
+  .twrap { overflow-x: auto; margin: 18px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+  th, td {
+    text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--rule);
+    vertical-align: top; overflow-wrap: break-word;
+  }
+  th {
+    font-family: var(--mono); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--muted); font-weight: 600;
+    border-bottom: 2px solid var(--ink);
+  }
+  td.chosen { border-left: 3px solid var(--good); }
+  tr:last-child td { border-bottom: none; }
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+
+  /* ---------- badges / pills ---------- */
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono);
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 3px 9px; border: 1.3px solid currentColor; white-space: nowrap;
+  }
+  .pill.good { color: var(--good); }
+  .pill.warn { color: var(--warn); }
+  .pill.bad { color: var(--bad); }
+  .pill.accent { color: var(--accent); }
+  .pill.accent2 { color: var(--accent-2); }
+
+  /* ---------- bug log ---------- */
+  .bug {
+    display: grid; grid-template-columns: 90px 1fr; gap: 4px 18px;
+    padding: 16px 0; border-bottom: 1px solid var(--rule);
+  }
+  .bug:last-child { border-bottom: none; }
+  .bug .tag { font-family: var(--mono); font-size: 10.5px; color: var(--muted); text-transform: uppercase; padding-top: 3px; }
+  .bug .body strong { display: block; margin-bottom: 4px; font-size: 15px; }
+  .bug .body p { margin: 0; font-size: 14px; color: var(--ink-soft); }
+  .bug .stat-line { font-family: var(--mono); font-size: 12.5px; color: var(--accent-2); margin-top: 6px; }
+
+  /* ---------- quote / callout ---------- */
+  blockquote {
+    margin: 20px 0; padding: 4px 0 4px 20px; border-left: 3px solid var(--accent);
+    font-family: var(--serif); font-style: italic; color: var(--ink-soft); font-size: 1.05rem;
+  }
+  .callout {
+    background: var(--accent-2-soft); border: 1.5px solid var(--accent-2);
+    padding: 16px 20px; font-size: 14.5px; color: var(--ink-soft); margin: 20px 0;
+  }
+  .callout strong { color: var(--accent-2); }
+
+  /* ---------- footer ---------- */
+  footer {
+    margin-top: 72px; padding-top: 20px; border-top: 3px solid var(--ink);
+    font-family: var(--mono); font-size: 11.5px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.05em;
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    section { animation: rise 0.5s ease both; }
+    section:nth-of-type(n+4) { animation: none; }
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+</style>
+
+<div class="doc">
+
+  <header class="masthead">
+    <div class="masthead-top">
+      <span><span class="live">●</span> NewsReel — Solution Review</span>
+      <span>10 Jul 2026</span>
+    </div>
+    <h1 class="title">Personal Podcast Generator</h1>
+    <p class="subtitle">An engineering report on architecture, reliability design, and the decisions behind them</p>
+    <div class="byline">
+      <span>Prosper AI · Technical Assignment</span>
+      <a href="https://github.com/likitha-shankar/NewsReel" class="inline">github.com/likitha-shankar/NewsReel</a>
+      <span>2,975 lines · 20 commits</span>
+    </div>
+  </header>
+
+  <nav class="toc">
+    <a href="#summary"><span class="n">01</span> Executive summary</a>
+    <a href="#architecture"><span class="n">02</span> System design</a>
+    <a href="#pipeline"><span class="n">03</span> The generation pipeline</a>
+    <a href="#workflow"><span class="n">04</span> Click to audio — full workflow</a>
+    <a href="#reliability"><span class="n">05</span> Reliability &amp; quality gates</a>
+    <a href="#decisions"><span class="n">06</span> Key decisions &amp; alternatives</a>
+    <a href="#product"><span class="n">07</span> Product surfaces</a>
+    <a href="#bugs"><span class="n">08</span> Bugs found &amp; fixed</a>
+    <a href="#economics"><span class="n">09</span> Cost &amp; performance</a>
+    <a href="#next"><span class="n">10</span> What I'd do next</a>
+  </nav>
+
+  <section id="summary">
+    <div class="section-head"><span class="section-num">01</span><h2>Executive summary</h2></div>
+    <p class="lede">NewsReel turns a list of interests into a scheduled, two-host news podcast. A five-stage pipeline gathers news from three independent sources, enriches the top articles with real body text, drafts a script with GPT-4o, fact-checks it against the sources with a <em>different</em> AI provider, and synthesizes audio with ElevenLabs — all as a background job so the UI never blocks.</p>
+    <p>The brief asked for three things: a UI to set interests and customize the show, a backend that pulls news via APIs or scraping, and an internal dashboard tracking product success. All three are built, plus a working reliability layer — retries, graceful degradation, idempotency, cross-provider quality review — because a take-home is a better signal when it's built the way the real thing would need to work.</p>
+    <div class="tiles">
+      <div class="tile"><div class="v">5</div><div class="l">Pipeline stages</div></div>
+      <div class="tile"><div class="v">3</div><div class="l">News sources</div></div>
+      <div class="tile"><div class="v">2</div><div class="l">AI providers (cross-checked)</div></div>
+      <div class="tile"><div class="v">5</div><div class="l">Languages</div></div>
+      <div class="tile"><div class="v">~$0.20</div><div class="l">Cost / episode</div></div>
+      <div class="tile"><div class="v">~40s</div><div class="l">Typical gen. time</div></div>
+    </div>
+  </section>
+
+  <section id="architecture">
+    <div class="section-head"><span class="section-num">02</span><h2>System design</h2></div>
+    <p>FastAPI + PostgreSQL on the backend, React/TypeScript on the front — deliberately Prosper's own stack. No UI framework; the design system is hand-built. One process holds the API, the scheduler, and the pipeline together; four tiers of components, each with a single clear job.</p>
+    <div class="sysdiagram">
+      <div class="stier-label">Client</div>
+      <div class="stier">
+        <div class="sbox"><div class="st">Browser</div><div class="sd">React + TypeScript (Vite). Renders the player, settings, and dev-mode dashboard/console.</div></div>
+      </div>
+      <div class="sconn"><span class="lbl">HTTPS · JSON · <b>polls every 4s</b> during generation</span></div>
+      <div class="stier-label">Application (one FastAPI process)</div>
+      <div class="stier">
+        <div class="sbox"><div class="st">Routes</div><div class="sd">Validation, idempotency guard, all endpoints.</div></div>
+        <div class="sbox"><div class="st">APScheduler</div><div class="sd">In-process cron — fires the daily/weekly job.</div></div>
+        <div class="sbox"><div class="st">Background task</div><div class="sd">Runs the 5-stage pipeline off the request thread.</div></div>
+      </div>
+      <div class="sconn"><span class="lbl">reads / writes</span></div>
+      <div class="stier-label">Storage</div>
+      <div class="stier">
+        <div class="sbox"><div class="st">PostgreSQL</div><div class="sd"><code>preferences</code> (1 row) + <code>episodes</code> (status, stage, script/sources JSON)</div></div>
+        <div class="sbox"><div class="st">Local media</div><div class="sd">Episode MP3s + kept per-line TTS segments for cheap re-voicing.</div></div>
+      </div>
+      <div class="sconn"><span class="lbl">outbound calls, all via <b>retry + backoff</b></span></div>
+      <div class="stier-label">External services (pipeline calls out here)</div>
+      <div class="stier">
+        <div class="sbox ext"><div class="st">News</div><div class="sd">Google News RSS · Hacker News API · Verge/BBC scrapers</div></div>
+        <div class="sbox ext"><div class="st">OpenAI</div><div class="sd">gpt-4o writes; gpt-4o-mini enriches</div></div>
+        <div class="sbox ext"><div class="st">Gemini 2.5</div><div class="sd">Cross-provider QA judge</div></div>
+        <div class="sbox ext"><div class="st">ElevenLabs</div><div class="sd">Per-line voice synthesis</div></div>
+      </div>
+      <div class="sconn"><span class="lbl">episode ready</span></div>
+      <div class="stier-label">Distribution</div>
+      <div class="stier">
+        <div class="sbox"><div class="st">/api/feed.xml</div><div class="sd">Standard podcast RSS — any podcast app subscribes directly.</div></div>
+      </div>
+    </div>
+    <p>The request flow: a click validates, writes a row, hands the work to a background task, and returns <code>202 Accepted</code> in milliseconds. The frontend polls every four seconds and renders the live pipeline stage — so a 40-second generation never holds an HTTP connection open, and the wait is visible rather than a spinner. Full step-by-step in §04.</p>
+  </section>
+
+  <section id="pipeline">
+    <div class="section-head"><span class="section-num">03</span><h2>The generation pipeline</h2></div>
+    <p>One episode walks five stages, each committed to the database as it completes — the <code>stage</code> column doubles as a lightweight state machine and a resumability anchor.</p>
+    <div class="pipeline">
+      <div class="pstage"><div class="k">1 · News</div><div class="d">RSS + Hacker News API + scrapers, per interest. One dead source logs and continues.</div></div>
+      <div class="parrow">→</div>
+      <div class="pstage"><div class="k">2 · Enrich</div><div class="d">Top articles fetched in full, TLDR'd by gpt-4o-mini — depth-scaled (see §05).</div></div>
+      <div class="parrow">→</div>
+      <div class="pstage"><div class="k">3 · Script</div><div class="d">GPT-4o writes structured JSON dialogue. Segmented per-topic above 500 words.</div></div>
+      <div class="parrow">→</div>
+      <div class="pstage"><div class="k">4 · QA</div><div class="d">Gemini grades vs. the saved sources on a deduction rubric.</div></div>
+      <div class="parrow">→</div>
+      <div class="pstage"><div class="k">5 · TTS</div><div class="d">ElevenLabs per line, byte-concatenated into the episode file.</div></div>
+      <div class="qa-loop">Score &lt; 7.0 → one rewrite with the reviewer's notes → best-of-two ships (never worse than the first draft). QA is advisory: a reviewer failure ships the episode unreviewed, flagged, never blocked.</div>
+    </div>
+    <h3>Why background + polling, not a queue or sockets</h3>
+    <p>Celery/Redis is the correct answer at scale, but needs a broker and worker fleet a single-user tool shouldn't carry. WebSockets are nicer UX for zero real benefit at this scale. FastAPI's own background tasks plus a four-second poll keep the UI responsive with zero extra infrastructure — and the pipeline is already one isolated function, so the Celery migration later is mechanical, not a rewrite.</p>
+  </section>
+
+  <section id="workflow">
+    <div class="section-head"><span class="section-num">04</span><h2>Click to audio — the full workflow</h2></div>
+    <p class="lede">What actually happens, in order, when a user presses <strong>Record</strong> — from the click to a playable episode.</p>
+    <div class="seq">
+      <div class="sstep">
+        <div class="shead"><span class="sn">1</span><span class="swhere">Browser</span><span class="st-title">User clicks Record</span><span class="stime">t = 0ms</span></div>
+        <p>Frontend sends <code>POST /api/episodes</code> with format, optional length override, focus text, and an optional article link.</p>
+      </div>
+      <div class="sstep">
+        <div class="shead"><span class="sn">2</span><span class="swhere">API</span><span class="st-title">Validate &amp; guard</span><span class="stime">t ≈ 5ms</span></div>
+        <p>Pydantic checks the shape (enum format, length caps). An idempotency check looks for an episode already <code>generating</code> — if one exists, that episode is returned instead of starting a duplicate.</p>
+      </div>
+      <div class="sstep">
+        <div class="shead"><span class="sn">3</span><span class="swhere">API</span><span class="st-title">Insert row, hand off, respond</span><span class="stime">t ≈ 20ms</span></div>
+        <p>An <code>episodes</code> row is written with <code>status = generating</code>, <code>stage = queued</code>. The pipeline function is handed to FastAPI's BackgroundTasks. The API responds <code>202 Accepted</code> with the episode id — the click is now "done" from the browser's point of view.</p>
+      </div>
+      <div class="sstep">
+        <div class="shead"><span class="sn">4</span><span class="swhere">Browser</span><span class="st-title">Start polling</span></div>
+        <p>The UI adds the episode optimistically and polls <code>GET /api/episodes/{id}</code> every 4 seconds, rendering whichever <code>stage</code> comes back.</p>
+      </div>
+      <div class="sstep">
+        <div class="shead"><span class="sn">5</span><span class="swhere">Worker</span><span class="st-title">Stage: news</span><span class="stime">~2–5s</span></div>
+        <p>Fetches per-interest results from RSS, the HN API, and scrapers, plus the listener's article link if one was given. A dead source logs and is skipped; total silence across all sources raises a clear error instead of continuing with nothing.</p>
+      </div>
+      <div class="sstep">
+        <div class="shead"><span class="sn">6</span><span class="swhere">Worker</span><span class="st-title">Stage: enrich</span><span class="stime">~3–8s</span></div>
+        <p>The top fetchable articles per topic are read in full and TLDR'd by gpt-4o-mini — more articles and more technical detail if the listener's depth is set to expert.</p>
+      </div>
+      <div class="sstep">
+        <div class="shead"><span class="sn">7</span><span class="swhere">Worker</span><span class="st-title">Stage: script</span><span class="stime">~5–10s</span></div>
+        <p>gpt-4o writes structured JSON dialogue. Above a 500-word target it segments — one call per topic, stitched with continuity — rather than one call that would under-deliver.</p>
+      </div>
+      <div class="sstep">
+        <div class="shead"><span class="sn">8</span><span class="swhere">Worker</span><span class="st-title">Stage: qa</span><span class="stime">~2–4s</span></div>
+        <p>Gemini grades the script against the saved sources. Below 7.0, one rewrite runs with the reviewer's notes and the better of the two drafts ships. A reviewer failure is caught — the episode proceeds unreviewed, flagged, never blocked.</p>
+      </div>
+      <div class="sstep">
+        <div class="shead"><span class="sn">9</span><span class="swhere">Worker</span><span class="st-title">Stage: tts</span><span class="stime">~20–30s</span></div>
+        <p>Each dialogue line is synthesized by ElevenLabs individually — with the neighboring lines passed as context for natural prosody — written to its own segment file, then byte-concatenated into the final MP3. This is where most of the wall-clock time goes.</p>
+      </div>
+      <div class="sstep">
+        <div class="shead"><span class="sn">10</span><span class="swhere">Worker</span><span class="st-title">Status → ready</span><span class="stime">t ≈ 35–60s</span></div>
+        <p>The episode row is updated: audio file, duration, QA score, transcript, sources. Status flips to <code>ready</code> only after every line has synthesized successfully — nothing half-built is ever exposed.</p>
+      </div>
+      <div class="sstep">
+        <div class="shead"><span class="sn">11</span><span class="swhere">Browser</span><span class="st-title">Next poll sees "ready"</span></div>
+        <p>The player renders and the episode is playable — and simultaneously available over the podcast RSS feed for any subscribed app.</p>
+      </div>
+    </div>
+    <p>If any stage raises — a dead-end news search, a malformed model response, an exhausted retry — the <code>except</code> wrapper around the whole pipeline catches it, sets <code>status = failed</code>, and records the error on the row. The user sees "didn't make it to air, try again"; dev mode shows the real error.</p>
+  </section>
+
+  <section id="reliability">
+    <div class="section-head"><span class="section-num">05</span><h2>Reliability &amp; quality gates</h2></div>
+    <p>The part that matters most for a company running AI systems at production call volume: what happens when something breaks.</p>
+    <div class="tiles">
+      <span class="pill good">Retries + backoff</span>
+      <span class="pill good">Per-source degradation</span>
+      <span class="pill good">Idempotent generation</span>
+      <span class="pill good">SSRF guard</span>
+      <span class="pill good">Cross-provider QA</span>
+      <span class="pill good">Malformed-output guards</span>
+      <span class="pill good">Model-ID validation</span>
+      <span class="pill good">Line-level validation</span>
+    </div>
+    <h3>Cross-provider QA — the deepest piece</h3>
+    <p>Every script is graded by <strong>Gemini 2.5 Flash</strong> while <strong>GPT-4o</strong> writes it. A model judging its own output shares its own blind spots; a different provider is an independent check. The rubric is deduction-based, not additive — the first version (additive, "8+ is airable") graded everything a 9.0. Deduction spread real scores from 2.0 to 9.0 on the same content:</p>
+    <div class="twrap">
+      <table>
+        <tr><th>Issue</th><th class="num">Penalty</th></tr>
+        <tr><td>Ungrounded factual claim (not traceable to a source)</td><td class="num">−3.0</td></tr>
+        <tr><td>Editorializing beyond what a source states</td><td class="num">−1.0</td></tr>
+        <tr><td>Markdown, stage directions, emojis, spoken URLs</td><td class="num">−1.0</td></tr>
+        <tr><td>Missing greeting or sign-off</td><td class="num">−1.0</td></tr>
+        <tr><td>3+ consecutive lines by one host</td><td class="num">−1.0</td></tr>
+        <tr><td>Tone mismatch</td><td class="num">−0.5 to −2.0</td></tr>
+        <tr><td>Filler with no information</td><td class="num">−0.5</td></tr>
+      </table>
+    </div>
+    <p>Provenance backs the check: every source is written to the database <em>before</em> the writer model ever runs, so the sources it's graded against are raw fetched data — not something either model could have invented after the fact.</p>
+    <h3>Idempotency — proven, not assumed</h3>
+    <p>Both the record endpoint and the scheduler check for an in-flight episode before starting another. Verified with two rapid POST requests: both returned the same episode id, no duplicate generation, no double ElevenLabs charge.</p>
+    <div class="callout"><strong>Known, named limit:</strong> the in-flight guard is single-instance. Multi-instance would need a <code>(user, scheduled_slot)</code> unique constraint in Postgres — a small, specific upgrade, not a redesign.</div>
+  </section>
+
+  <section id="decisions">
+    <div class="section-head"><span class="section-num">06</span><h2>Key decisions &amp; alternatives considered</h2></div>
+    <p>Every major choice had two or three real alternatives. The rule applied throughout: the simplest thing that genuinely works for a single-user product, with a named upgrade trigger for when it stops being enough.</p>
+    <div class="twrap">
+      <table>
+        <tr><th>Decision point</th><th>Chosen</th><th>Passed on</th><th>Why</th></tr>
+        <tr><td>Generation execution</td><td class="chosen">BackgroundTasks + polling</td><td>Celery/Redis; WebSockets; serverless</td><td>Zero infra, fully responsive, needs no broker. Serverless hits function-timeout limits on a 40s–5min job.</td></tr>
+        <tr><td>Scheduling</td><td class="chosen">APScheduler, in-process</td><td>OS cron; Celery Beat</td><td>Reads live prefs from the DB and re-registers instantly on save; no separate process.</td></tr>
+        <tr><td>Storage</td><td class="chosen">Postgres, 2 tables + JSON columns</td><td>MongoDB; a normalized <code>lines</code> table</td><td>Relational where it matters (episodes/prefs), document-style where it helps (script/sources) — no joins for data always read as a whole.</td></tr>
+        <tr><td>News acquisition</td><td class="chosen">RSS + HN API + scrapers + enrichment</td><td>Paid news API (NewsAPI)</td><td>RSS handles <em>any</em> topic string a user types; a paid API needs pre-curated queries and a key.</td></tr>
+        <tr><td>Audio assembly</td><td class="chosen">Per-line TTS, byte-concat</td><td>ffmpeg/pydub merge</td><td>Identical codec settings per segment make raw concatenation correct; a native dependency for gluing files is unearned complexity here.</td></tr>
+        <tr><td>Script depth ("expert")</td><td class="chosen">Scales enrichment data, not just tone</td><td>Tone-only instruction over identical summaries</td><td>Style without substance is theater — expert episodes now read more source material, not just sound more technical about the same facts.</td></tr>
+      </table>
+    </div>
+    <h3>The length bug — a debugging story worth telling in the room</h3>
+    <p>Setting a 15-minute episode produced 4 minutes of audio. The instinct is "use a better model." Investigation showed the real ceiling: a single LLM completion reliably under-delivers past ~500 target words regardless of the model. The fix was <strong>segmentation</strong> — one call per topic with its own word budget, stitched with continuity between segments — which reliably hits length because no single call is asked to sustain thousands of words.</p>
+    <h3>The starved-input bug — found by reading the database, not guessing</h3>
+    <p>Episodes felt thin regardless of length settings. Querying the stored <code>sources</code> JSON showed the actual input the writer received: RSS summaries were just the title repeated, Hacker News gave engagement counts, scrapers gave nothing. <strong>No model writes a substantive script from fifteen headlines</strong> — the bottleneck was starved input, not model capability. The fix: an enrichment stage that fetches the top articles' real bodies and distills them with a cheap model before the writer ever sees them.</p>
+  </section>
+
+  <section id="product">
+    <div class="section-head"><span class="section-num">07</span><h2>Product surfaces</h2></div>
+    <p>A listener mode and a developer mode share one codebase; the DEV toggle flips both the visible feature set and the visual theme.</p>
+    <h3>Listener-facing</h3>
+    <ul>
+      <li><strong>Formats:</strong> two-host deep dive, single-narrator brief, or opposing-side debate — plus a solo-host station mode.</li>
+      <li><strong>One-click show profiles:</strong> Commute (2-min brief), Daily Dive, Sunday Longread, Face-off — format, length, and steering bundled into one tap.</li>
+      <li><strong>Personalization:</strong> five languages, three tones with concrete style directives, three listener-knowledge depths that now scale source depth as well as vocabulary, per-episode focus steering, and an optional listener-supplied article folded in as its own source.</li>
+      <li><strong>Ask the Hosts:</strong> a question — typed or voice-dictated — answered strictly from that episode's transcript and sources, spoken back in the host's voice. An uncovered question offers to become the next episode, one click.</li>
+      <li><strong>Line-level re-voicing:</strong> per-line TTS segments are kept on disk, so editing one transcript line re-synthesizes only that line — about 0.6 seconds, versus a full ~40-second regeneration.</li>
+      <li><strong>Distribution:</strong> a private podcast RSS feed subscribes in any podcast app; soft delete with a 30-second undo.</li>
+    </ul>
+    <h3>Operator-facing (dev mode)</h3>
+    <ul>
+      <li><strong>Dashboard:</strong> generation success rate, average latency, QA pass rate, listen rate and completion by episode length, cost per episode — the metrics that describe pipeline health, not vanity counts.</li>
+      <li><strong>Console:</strong> model, temperature, and voice tuning, with model IDs verified against each provider before saving, and a hard block on setting the QA judge to the writer's own provider.</li>
+    </ul>
+  </section>
+
+  <section id="bugs">
+    <div class="section-head"><span class="section-num">08</span><h2>Bugs found &amp; fixed</h2></div>
+    <p>Found through deliberate audits of the shipped product, not left for a reviewer to discover.</p>
+    <div class="bug">
+      <div class="tag">Length</div>
+      <div class="body"><strong>15-minute setting produced 4 minutes of audio</strong>
+      <p>Root cause: single-call generation under-delivers word targets past ~500 words. Fixed with per-topic segmentation.</p>
+      <div class="stat-line">381 words → 841 words on a 5-minute target, measured</div></div>
+    </div>
+    <div class="bug">
+      <div class="tag">Content depth</div>
+      <div class="body"><strong>Episodes read thin regardless of settings</strong>
+      <p>Diagnosed by querying the database directly: the writer was receiving headlines only. Fixed with an article-enrichment stage.</p>
+      <div class="stat-line">10 of 15 sources upgraded from title-only to real TLDRs, verified in the DB</div></div>
+    </div>
+    <div class="bug">
+      <div class="tag">Crash</div>
+      <div class="body"><strong>QA judge response truncated mid-JSON, crashing the review</strong>
+      <p>The judge's output cap was hit on longer scripts. Fixed with a raised budget, an 8-issue cap on the judge's own output, and a lenient parser that salvages a closed-but-truncated array.</p></div>
+    </div>
+    <div class="bug">
+      <div class="tag">Data integrity</div>
+      <div class="body"><strong>Malformed model output could ship a silent-empty episode</strong>
+      <p>Nothing validated script lines before spending on audio. Added a gate that keeps only well-formed lines and fails loudly if none remain — before any TTS cost is incurred.</p></div>
+    </div>
+    <div class="bug">
+      <div class="tag">Security</div>
+      <div class="body"><strong>Listener-supplied article links could target internal services</strong>
+      <p>Confirmed the fetcher could read an internal API endpoint. Fixed with a guard refusing loopback, private, and link-local addresses before any request is made.</p></div>
+    </div>
+    <div class="bug">
+      <div class="tag">Personalization</div>
+      <div class="body"><strong>"Expert" depth changed tone, not substance</strong>
+      <p>Expert episodes sounded more technical over identical source material. Enrichment now scales with depth — more articles, longer and more technical summaries for expert listeners.</p>
+      <div class="stat-line">524-char TLDR (basic) vs. 935-char TLDR (expert) on the same source article</div></div>
+    </div>
+  </section>
+
+  <section id="economics">
+    <div class="section-head"><span class="section-num">09</span><h2>Cost &amp; performance</h2></div>
+    <div class="tiles">
+      <div class="tile"><div class="v">~$0.04</div><div class="l">Writer + QA / episode</div></div>
+      <div class="tile"><div class="v">~$0.04</div><div class="l">TTS, per audio minute</div></div>
+      <div class="tile"><div class="v">97.1%</div><div class="l">Generation success rate</div></div>
+      <div class="tile"><div class="v">98.4%</div><div class="l">QA pass rate</div></div>
+      <div class="tile"><div class="v">43s</div><div class="l">Avg. generation latency</div></div>
+      <div class="tile"><div class="v">60–70%</div><div class="l">Latency spent in TTS</div></div>
+    </div>
+    <p>Voice synthesis dominates unit economics — a five-minute episode costs roughly $0.20–0.30 all-in; a fifteen-minute one, $0.60–1.20. That's why the length slider warns above eight minutes, and why cost-per-episode is a first-class dashboard metric rather than an afterthought.</p>
+  </section>
+
+  <section id="next">
+    <div class="section-head"><span class="section-num">10</span><h2>What I'd do next</h2></div>
+    <ol>
+      <li><strong>Real event tracking</strong> behind the dashboard — an <code>events</code> table replacing the current seeded mock data.</li>
+      <li><strong>Concurrent TTS synthesis</strong>, batched by speaker turn rather than fully sequential — most of the latency win without losing cross-line prosody.</li>
+      <li><strong>QA calibration</strong> — sample episodes for human review and track agreement with the automated judge over time.</li>
+      <li><strong>Multi-tenancy</strong> — a <code>user_id</code> column, per-user scheduler jobs, and a durable <code>(user, slot)</code> idempotency key for multi-instance deployment.</li>
+    </ol>
+  </section>
+
+  <footer>
+    <span>NewsReel — Personal Podcast Generator</span>
+    <span>Prepared for Prosper AI solution review</span>
+  </footer>
+
+</div>
