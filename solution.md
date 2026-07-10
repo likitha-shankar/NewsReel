@@ -27,7 +27,7 @@ React (Vite, :5173) ── /api proxy ──► FastAPI (:8001) ──── APS
                           2. script  gpt-4o → JSON dialogue
                                      · formats: deep dive / brief (single voice) / debate
                                      · tone, listener-knowledge, language, listener "focus" steering
-                                     · >~900 words → segmented: one LLM call per topic,
+                                     · >500 words → segmented: one LLM call per topic,
                                        stitched with continuity tails (single calls under-deliver length)
                           3. qa      gemini-2.5-flash grades 0–10 by deduction (hallucinations −3,
                                      editorializing −1, filler −0.5, …); score < 7 → one rewrite with
