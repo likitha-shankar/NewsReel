@@ -140,6 +140,32 @@ TITLE_PROMPT = """Give a catchy podcast episode title (max 10 words) for an epis
 SEGMENT_THRESHOLD_WORDS = 500
 
 
+def _loads_lenient(text: str) -> dict:
+    """json.loads, but salvage a response truncated mid-array (token-limit cutoff): close the
+    open string/array/object so a partial issues list still parses instead of crashing QA."""
+    text = text.strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        salvage = text.rstrip().rstrip(",")
+        # drop a dangling half-written string element, then close brackets we opened
+        if salvage.count('"') % 2:
+            salvage = salvage[: salvage.rfind('"')].rstrip().rstrip(",")
+        salvage += "]" * (salvage.count("[") - salvage.count("]"))
+        salvage += "}" * (salvage.count("{") - salvage.count("}"))
+        return json.loads(salvage)  # raises if still unrecoverable — caller handles
+
+
+def _valid_lines(script: dict) -> list[dict]:
+    """Keep only well-formed dialogue lines: host in {1,2}, non-empty text. Guards against a
+    malformed LLM response silently producing an empty (but 'ready') episode."""
+    out = []
+    for ln in (script.get("lines") or []):
+        if isinstance(ln, dict) and ln.get("host") in (1, 2) and str(ln.get("text", "")).strip():
+            out.append({"host": ln["host"], "text": str(ln["text"]).strip()})
+    return out
+
+
 def _chat_json(adv: dict, prompt: str, temperature: float | None = None, model: str | None = None,
                max_tokens: int | None = None) -> dict:
     body = {
@@ -156,7 +182,7 @@ def _chat_json(adv: dict, prompt: str, temperature: float | None = None, model: 
         json_body=body,
         timeout=120,
     )
-    return json.loads(resp.json()["choices"][0]["message"]["content"])
+    return _loads_lenient(resp.json()["choices"][0]["message"]["content"])
 
 
 def _fetchable(link: str) -> bool:
@@ -325,6 +351,8 @@ Floor at 0. Report the final score to one decimal. Do NOT round up to whole numb
 
 The script may be written in any language; grade it the same way and write your issues in English.
 
+List AT MOST the 8 most important deductions (keep the response compact).
+
 Return JSON: {{"score": <number>, "issues": ["<specific deduction with its penalty, e.g. '-1.0: host 2 has 3 consecutive lines (lines 7-9)'>", ...]}}
 
 News items the script must be grounded in:
@@ -337,7 +365,7 @@ Script to review:
 QA_THRESHOLD = 7.0
 
 
-def _gemini_json(model: str, prompt: str, max_tokens: int = 800) -> dict:
+def _gemini_json(model: str, prompt: str, max_tokens: int = 1500) -> dict:
     resp = post_with_retry(
         f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
         headers={"x-goog-api-key": os.environ["GEMINI_API_KEY"]},
@@ -353,7 +381,12 @@ def _gemini_json(model: str, prompt: str, max_tokens: int = 800) -> dict:
         },
         timeout=120,
     )
-    return json.loads(resp.json()["candidates"][0]["content"]["parts"][0]["text"])
+    data = resp.json()
+    candidates = data.get("candidates") or []
+    if not candidates:  # safety block / empty response — no content to parse
+        raise ValueError(f"Gemini returned no candidates (feedback: {data.get('promptFeedback')})")
+    text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+    return _loads_lenient(text)
 
 
 FORMAT_QA_NOTES = {
@@ -370,7 +403,7 @@ def _qa_review(prefs: Preferences, news: dict, script: dict, fmt: str = "deep_di
         format_note += " NOTE: SOLO show — a single narrator is CORRECT; do not deduct for consecutive lines."
     prompt = QA_PROMPT.format(tone=prefs.tone, news_json=json.dumps(news, indent=1),
                               format_note=format_note,
-                              script_json=json.dumps(script["lines"], indent=1))
+                              script_json=json.dumps(script.get("lines", []), indent=1))
     if adv["qa_model"].startswith("gemini") and os.environ.get("GEMINI_API_KEY"):
         result = _gemini_json(adv["qa_model"], prompt)
     else:
@@ -507,16 +540,20 @@ def run_pipeline(episode_id: int) -> None:
         except Exception as exc:  # noqa: BLE001
             log.exception("QA reviewer errored — shipping unreviewed")
             score, issues = 0.0, [f"QA reviewer errored ({type(exc).__name__}); episode shipped unreviewed"]
+        # validate before spending TTS money: a malformed LLM response must fail loud, not ship silent-empty
+        lines = _valid_lines(script)
+        if not lines:
+            raise RuntimeError("Script generation produced no usable lines — try regenerating")
         episode.qa_score = score
         episode.qa_notes = "\n".join(issues)
         # LLMs occasionally emit HTML entities ("&amp;") in titles
         episode.title = html.unescape(script.get("title", "Untitled episode"))
-        episode.script = script["lines"]
+        episode.script = lines
         db.commit()
 
         stage("tts")
         filename = f"episode_{episode.id}.mp3"
-        episode.duration_seconds = _synthesize(prefs, script["lines"], episode.id, MEDIA_DIR / filename)
+        episode.duration_seconds = _synthesize(prefs, lines, episode.id, MEDIA_DIR / filename)
         episode.audio_file = filename
         episode.status = "ready"
         db.commit()
